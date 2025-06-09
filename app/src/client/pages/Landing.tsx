@@ -29,7 +29,8 @@ function Landing() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="TimeSherpa Logo" className="h-10 w-10" />
               <h1 className="text-2xl font-bold text-primary-dark">TimeSherpa</h1>
             </div>
           </div>
