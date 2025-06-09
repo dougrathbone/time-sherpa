@@ -26,6 +26,8 @@ Leaders, executives, and knowledge workers who heavily rely on Google Calendar a
 
 ## 2. Technical Specifications
 
+* Single application that can be run by a single node instance. this means the client app and the server side app should reside under a shared basedpath.
+
 ### 2.1. Frontend
 * **Language:** TypeScript
 * **Framework:** React (or a similar modern framework like Vue.js or Svelte, with a preference for React)
