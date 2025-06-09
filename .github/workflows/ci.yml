@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    name: Test on Node ${{ matrix.node-version }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: [18.x, 20.x]
+        # Add more OS options if needed: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: app/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./app
+      run: npm ci
+
+    - name: Run linter
+      working-directory: ./app
+      run: npm run lint
+      continue-on-error: true # Don't fail build on lint errors for now
+
+    - name: Type check
+      working-directory: ./app
+      run: npm run type-check
+
+    - name: Run tests
+      working-directory: ./app
+      run: npm test -- --coverage --passWithNoTests
+      env:
+        NODE_ENV: test
+
+    - name: Upload coverage reports
+      if: matrix.node-version == '20.x' && matrix.os == 'ubuntu-latest'
+      uses: codecov/codecov-action@v3
+      with:
+        directory: ./app/coverage
+        flags: unittests
+        name: codecov-umbrella
+
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: app/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./app
+      run: npm ci
+
+    - name: Build application
+      working-directory: ./app
+      run: npm run build
+      env:
+        NODE_ENV: production
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: |
+          app/dist/
+          app/public/
+        retention-days: 7
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Run npm audit
+      working-directory: ./app
+      run: npm audit --audit-level=high
+      continue-on-error: true # Don't fail on vulnerabilities for now
+
+    - name: Run dependency check
+      working-directory: ./app
+      run: |
+        npm list --depth=0 --json > dependencies.json
+        echo "::notice::Dependencies have been listed for review"
+
+  lint-and-format:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: app/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./app
+      run: npm ci
+
+    - name: Check code formatting
+      working-directory: ./app
+      run: |
+        # Add prettier check when configured
+        echo "::notice::Code formatting check placeholder"
+
+    - name: Run ESLint
+      working-directory: ./app
+      run: npm run lint -- --format=json --output-file=eslint-report.json || true
+
+    - name: Upload ESLint report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: eslint-report
+        path: app/eslint-report.json
+        retention-days: 7
+
+  # Optional: Add deployment job for main branch
+  # deploy:
+  #   name: Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   needs: [test, build, security]
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   
+  #   steps:
+  #   - name: Deploy application
+  #     run: echo "Add deployment steps here" 

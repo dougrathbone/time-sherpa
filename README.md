@@ -2,6 +2,7 @@
 
 > AI-powered Google Calendar analysis tool for leaders and executives to gain insights into their time management.
 
+![CI Status](https://github.com/yourusername/time-sherpa/workflows/CI/badge.svg)
 ![TimeSherpa Dashboard](https://img.shields.io/badge/status-beta-yellow)
 ![TypeScript](https://img.shields.io/badge/TypeScript-4.9+-blue)
 ![React](https://img.shields.io/badge/React-18.2+-61DAFB)
@@ -180,6 +181,34 @@ The project uses:
 4. Commit: `git commit -m "feat: add new feature"`
 5. Push: `git push origin feature/your-feature-name`
 6. Create a Pull Request
+
+## 🔄 CI/CD
+
+The project uses GitHub Actions for continuous integration and deployment.
+
+### Automated Checks
+
+Every push and pull request triggers:
+
+- **Multi-version testing** - Tests run on Node.js 18.x and 20.x
+- **Type checking** - TypeScript compilation checks
+- **Linting** - ESLint code quality checks
+- **Unit tests** - Jest test suite with coverage reporting
+- **Security audit** - npm audit for vulnerability scanning
+- **Build verification** - Production build testing
+
+### Pull Request Checks
+
+Additional PR-specific checks:
+- PR size analysis and labeling
+- Conventional commit title verification
+- Branch naming convention checks
+- Sensitive file detection
+
+### Workflow Files
+
+- `.github/workflows/ci.yml` - Main CI pipeline
+- `.github/workflows/pr-checks.yml` - Pull request validations
 
 ## 🚀 Deployment
 
