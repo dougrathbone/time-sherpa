@@ -32,6 +32,9 @@ export function setupGoogleStrategy(): void {
       ? 'http://localhost:3001/api/auth/google/callback'
       : credentials.web.redirect_uris[0];
 
+    console.log('Google OAuth redirect URI:', redirectUri);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+
     passport.use(new GoogleStrategy({
       clientID: clientId,
       clientSecret: clientSecret,
