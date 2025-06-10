@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import TimeAnalysisChart from '../components/TimeAnalysisChart';
 import SuggestionsPanel from '../components/SuggestionsPanel';
 import LoadingState from '../components/LoadingState';
+import { SubscriptionPrompt } from '../components/SubscriptionPrompt';
 
 interface CalendarAnalysis {
   categories: {
@@ -34,6 +35,7 @@ function Dashboard() {
   const [suggestions, setSuggestions] = useState<ScheduleSuggestions | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSubscriptionPrompt, setShowSubscriptionPrompt] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -85,6 +87,20 @@ function Dashboard() {
     }
   };
 
+  const handleDismissPrompt = () => {
+    setShowSubscriptionPrompt(false);
+    // Store in localStorage to remember dismissal
+    localStorage.setItem('subscriptionPromptDismissed', 'true');
+  };
+
+  useEffect(() => {
+    // Check if prompt was previously dismissed
+    const dismissed = localStorage.getItem('subscriptionPromptDismissed');
+    if (dismissed === 'true') {
+      setShowSubscriptionPrompt(false);
+    }
+  }, []);
+
   if (authLoading || loading) {
     return <LoadingState />;
   }
@@ -115,6 +131,12 @@ function Dashboard() {
                 <span className="text-primary-dark font-medium">{user.name}</span>
               </div>
               <button
+                onClick={() => navigate('/settings')}
+                className="text-primary-dark/70 hover:text-primary-dark transition-colors"
+              >
+                Settings
+              </button>
+              <button
                 onClick={logout}
                 className="text-primary-dark/70 hover:text-primary-dark transition-colors"
               >
@@ -127,6 +149,11 @@ function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Subscription Prompt */}
+        {showSubscriptionPrompt && analysis && (
+          <SubscriptionPrompt onDismiss={handleDismissPrompt} />
+        )}
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
             {error}

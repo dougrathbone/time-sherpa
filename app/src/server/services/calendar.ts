@@ -80,4 +80,54 @@ export async function getCalendarEvents(
     console.error('Error fetching calendar events:', error);
     throw new Error('Failed to fetch calendar events');
   }
+}
+
+export async function getUserCalendarEvents(
+  auth: any,
+  timeMin?: string,
+  timeMax?: string
+): Promise<CalendarEvent[]> {
+  try {
+    const calendar = google.calendar({ version: 'v3', auth });
+
+    const response = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: timeMin || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+      timeMax: timeMax || new Date().toISOString(), // Now
+      maxResults: 2500,
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+
+    const events = response.data.items || [];
+    
+    return events.map((event): CalendarEvent => ({
+      id: event.id!,
+      summary: event.summary!,
+      description: event.description ?? undefined,
+      start: {
+        dateTime: event.start?.dateTime ?? undefined,
+        date: event.start?.date ?? undefined,
+      },
+      end: {
+        dateTime: event.end?.dateTime ?? undefined,
+        date: event.end?.date ?? undefined,
+      },
+      attendees: event.attendees?.map(attendee => ({
+        email: attendee.email!,
+        displayName: attendee.displayName ?? undefined,
+      })),
+      creator: event.creator ? {
+        email: event.creator.email || '',
+        displayName: event.creator.displayName,
+      } : undefined,
+      organizer: event.organizer ? {
+        email: event.organizer.email || '',
+        displayName: event.organizer.displayName,
+      } : undefined,
+    }));
+  } catch (error) {
+    console.error('Error fetching calendar events:', error);
+    throw new Error('Failed to fetch calendar events');
+  }
 } 

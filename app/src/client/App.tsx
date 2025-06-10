@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
+import { Settings } from './pages/Settings';
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </div>
     </AuthProvider>

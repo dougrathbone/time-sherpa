@@ -84,4 +84,35 @@ export function ensureAuthenticated(req: any, res: any, next: any): void {
     return next();
   }
   res.status(401).json({ error: 'Authentication required' });
+}
+
+export async function getRefreshTokenAuth(refreshToken: string): Promise<any> {
+  try {
+    // Read Google OAuth credentials
+    const credentialsPath = path.join(process.cwd(), 'client_secret.json');
+    const credentials: GoogleCredentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+    
+    const clientId = credentials.web.client_id;
+    const clientSecret = credentials.web.client_secret;
+
+    const { google } = await import('googleapis');
+    const oauth2Client = new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      credentials.web.redirect_uris[0]
+    );
+
+    oauth2Client.setCredentials({
+      refresh_token: refreshToken,
+    });
+
+    // Get new access token using refresh token
+    const { credentials: newCredentials } = await oauth2Client.refreshAccessToken();
+    oauth2Client.setCredentials(newCredentials);
+
+    return oauth2Client;
+  } catch (error) {
+    console.error('Error creating auth from refresh token:', error);
+    throw new Error('Failed to authenticate with refresh token');
+  }
 } 

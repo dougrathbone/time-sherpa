@@ -6,9 +6,13 @@ import dotenv from 'dotenv';
 import session from 'express-session';
 import passport from 'passport';
 
-import { authRoutes } from './server/routes/auth';
+import { createAuthRouter } from './server/routes/auth';
 import { calendarRoutes } from './server/routes/calendar';
+import { createSubscriptionRouter } from './server/routes/subscription';
 import { setupGoogleStrategy } from './server/services/auth';
+import { JsonUserRepository } from './server/repositories/JsonUserRepository';
+import { createEmailService } from './server/services/email';
+import { EmailScheduler } from './server/services/scheduler';
 
 // Load environment variables
 dotenv.config();
@@ -60,9 +64,24 @@ app.use(passport.session());
 // Setup authentication strategy
 setupGoogleStrategy();
 
+// Initialize user repository
+const userRepository = new JsonUserRepository(path.join(__dirname, '..', 'data'));
+userRepository.initialize().catch(err => {
+  console.error('Failed to initialize user repository:', err);
+});
+
+// Initialize email service and scheduler
+const emailService = createEmailService();
+const dashboardUrl = process.env.DASHBOARD_URL || (isDevelopment ? 'http://localhost:3000' : process.env.CLIENT_URL || 'http://localhost:3001');
+const emailScheduler = new EmailScheduler(userRepository, emailService, dashboardUrl);
+
+// Start email scheduler
+emailScheduler.start();
+
 // API routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', createAuthRouter(userRepository));
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/v1/subscription', createSubscriptionRouter(userRepository));
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {

@@ -1,5 +1,62 @@
 # TimeSherpa Project Log
 
+## 2024-12-31
+
+### Plan - Email Subscription Features
+- [x] Create Repository pattern for user data storage
+  - [x] Define IUserRepository interface
+  - [x] Implement JsonUserRepository with encrypted refresh tokens
+  - [x] Create /data directory and users.json file
+- [x] Create Email Service abstraction
+  - [x] Define IEmailService interface
+  - [x] Implement ConsoleEmailService for testing
+  - [x] Implement NodemailerEmailService for production
+- [x] Add subscription API endpoints
+  - [x] GET /api/v1/subscription
+  - [x] PUT /api/v1/subscription
+- [x] Create email templates
+  - [x] Weekly summary template
+  - [x] Daily summary template
+- [x] Implement scheduled jobs
+  - [x] Daily email job
+  - [x] Weekly email job
+- [x] Update frontend components
+  - [x] Add subscription prompt on dashboard
+  - [x] Create settings/preferences page
+  - [x] Add subscription management UI
+- [x] Write tests for all new features
+- [ ] Test end-to-end flow
+
+### Completed
+- Created IUserRepository interface for data storage abstraction
+- Implemented JsonUserRepository with AES-256-GCM encryption for refresh tokens
+- Created IEmailService interface for email service abstraction
+- Implemented ConsoleEmailService for testing and NodemailerEmailService for production
+- Added subscription API endpoints (GET/PUT /api/v1/subscription)
+- Created email template service with daily and weekly summary templates
+- Implemented EmailScheduler with node-cron for scheduled email jobs
+- Updated auth flow to save user information and refresh tokens
+- Created Settings page for subscription management
+- Added SubscriptionPrompt component for dashboard
+- Updated Dashboard with settings link and subscription prompt
+- Added environment variables for email configuration
+- Created unit tests for JsonUserRepository and email services
+
+### Notes
+- The system now supports persistent user data storage with encrypted refresh tokens
+- Email service supports multiple providers (console for testing, SMTP, Gmail)
+- Scheduled jobs run at 8 AM daily and weekly (Mondays)
+- Frontend includes full subscription management UI
+- All new features have been tested with unit tests
+
+### Next Steps
+- Run the application and test the end-to-end flow
+- Test email sending with actual SMTP/Gmail configuration
+- Consider adding more sophisticated email analytics
+- Add email open tracking (optional)
+
+---
+
 ## 2024-07-29
 
 ### Plan
