@@ -1,40 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useCalendarAnalysis } from '../hooks/useCalendarAnalysis';
 import { useNavigate } from 'react-router-dom';
 import TimeAnalysisChart from '../components/TimeAnalysisChart';
 import SuggestionsPanel from '../components/SuggestionsPanel';
 import LoadingState from '../components/LoadingState';
 import { SubscriptionPrompt } from '../components/SubscriptionPrompt';
 
-interface CalendarAnalysis {
-  categories: {
-    name: string;
-    totalHours: number;
-    percentage: number;
-    eventCount: number;
-  }[];
-  totalMeetingHours: number;
-  focusHours: number;
-  keyInsights: string[];
-  topCollaborators: {
-    name: string;
-    hours: number;
-  }[];
-}
-
-interface ScheduleSuggestions {
-  suggestions: string[];
-  anomalies: string[];
-  focusTimeRecommendations: string[];
-}
-
 function Dashboard() {
   const { user, loading: authLoading, logout } = useAuth();
+  const { 
+    analysis, 
+    suggestions, 
+    loading, 
+    error, 
+    fetchAnalysis, 
+    fetchSuggestions, 
+    clearData,
+    isStale,
+    lastFetched 
+  } = useCalendarAnalysis();
   const navigate = useNavigate();
-  const [analysis, setAnalysis] = useState<CalendarAnalysis | null>(null);
-  const [suggestions, setSuggestions] = useState<ScheduleSuggestions | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showSubscriptionPrompt, setShowSubscriptionPrompt] = useState(true);
 
   useEffect(() => {
@@ -44,47 +30,29 @@ function Dashboard() {
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
+    if (!authLoading && !user) {
+      // Clear analysis data when user logs out
+      clearData();
+    }
+  }, [user, authLoading, clearData]);
+
+  useEffect(() => {
     if (user) {
-      fetchAnalysis();
-      fetchSuggestions();
-    }
-  }, [user]);
-
-  const fetchAnalysis = async () => {
-    try {
-      const response = await fetch('/api/calendar/analysis', {
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setAnalysis(data.analysis);
-      } else {
-        throw new Error('Failed to fetch analysis');
+      // Only fetch if we don't have data or if it's stale
+      if (!analysis || isStale()) {
+        fetchAnalysis();
       }
-    } catch (err) {
-      console.error('Error fetching analysis:', err);
-      setError('Failed to load calendar analysis');
-    }
-  };
-
-  const fetchSuggestions = async () => {
-    try {
-      const response = await fetch('/api/calendar/upcoming', {
-        credentials: 'include',
-      });
       
-      if (response.ok) {
-        const data = await response.json();
-        setSuggestions(data.suggestions);
-      } else {
-        throw new Error('Failed to fetch suggestions');
+      // Always fetch suggestions as they're for upcoming events
+      if (!suggestions) {
+        fetchSuggestions();
       }
-    } catch (err) {
-      console.error('Error fetching suggestions:', err);
-    } finally {
-      setLoading(false);
     }
+  }, [user, analysis, suggestions, isStale, fetchAnalysis, fetchSuggestions]);
+
+  const handleRefresh = async () => {
+    await fetchAnalysis();
+    await fetchSuggestions();
   };
 
   const handleDismissPrompt = () => {
@@ -100,6 +68,19 @@ function Dashboard() {
       setShowSubscriptionPrompt(false);
     }
   }, []);
+
+  const getDataFreshnessText = () => {
+    if (!lastFetched) return '';
+    
+    const minutes = Math.floor((Date.now() - lastFetched.getTime()) / (1000 * 60));
+    if (minutes < 1) return 'Updated just now';
+    if (minutes === 1) return 'Updated 1 minute ago';
+    if (minutes < 60) return `Updated ${minutes} minutes ago`;
+    
+    const hours = Math.floor(minutes / 60);
+    if (hours === 1) return 'Updated 1 hour ago';
+    return `Updated ${hours} hours ago`;
+  };
 
   if (authLoading || loading) {
     return <LoadingState />;
@@ -157,6 +138,27 @@ function Dashboard() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
             {error}
+          </div>
+        )}
+
+        {/* Data Freshness and Refresh Controls */}
+        {analysis && (
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-2 text-sm text-primary-dark/60">
+              <div className={`w-2 h-2 rounded-full ${isStale() ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+              {getDataFreshnessText()}
+              {isStale() && <span className="text-yellow-600">(Data may be outdated)</span>}
+            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary-dark/70 hover:text-primary-dark border border-primary-gray/30 rounded-lg hover:bg-white/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
           </div>
         )}
 

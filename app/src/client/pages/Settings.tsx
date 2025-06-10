@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCalendarAnalysis } from '../hooks/useCalendarAnalysis';
 import axios from 'axios';
 
 interface SubscriptionPreferences {
@@ -9,6 +10,7 @@ interface SubscriptionPreferences {
 
 export function Settings() {
   const navigate = useNavigate();
+  const { analysis, loading: analysisLoading } = useCalendarAnalysis();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<SubscriptionPreferences>({
@@ -68,11 +70,15 @@ export function Settings() {
     }));
   };
 
+  const handleBackToDashboard = () => {
+    navigate('/dashboard');
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-primary-light flex items-center justify-center">
+      <div className="min-h-screen bg-primary-cream flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-orange mx-auto"></div>
           <p className="mt-4 text-primary-dark">Loading preferences...</p>
         </div>
       </div>
@@ -80,13 +86,13 @@ export function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-primary-light">
+    <div className="min-h-screen bg-primary-cream">
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-primary-dark">Settings</h1>
           <button
-            onClick={() => navigate('/dashboard')}
-            className="text-secondary hover:text-secondary-dark transition-colors"
+            onClick={handleBackToDashboard}
+            className="text-primary-teal hover:text-primary-dark transition-colors"
           >
             ← Back to Dashboard
           </button>
@@ -94,6 +100,21 @@ export function Settings() {
 
         <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
           <h2 className="text-2xl font-semibold text-primary-dark mb-6">Email Subscription</h2>
+          
+          {/* Analysis Status */}
+          {!analysisLoading && !analysis && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg mb-6">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">No calendar analysis available yet.</span>
+              </div>
+              <p className="mt-1 text-sm">
+                Return to your dashboard to analyze your calendar data before setting up email summaries.
+              </p>
+            </div>
+          )}
           
           {message && (
             <div className={`p-4 rounded-lg mb-6 ${
@@ -104,17 +125,17 @@ export function Settings() {
           )}
 
           <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-neutral-light rounded-lg">
+            <div className="flex items-center justify-between p-4 bg-primary-cream/50 rounded-lg">
               <div>
                 <h3 className="text-lg font-medium text-primary-dark">Email Summaries</h3>
-                <p className="text-sm text-neutral-dark mt-1">
+                <p className="text-sm text-primary-dark/70 mt-1">
                   Receive TimeSherpa insights directly in your inbox
                 </p>
               </div>
               <button
                 onClick={handleToggleSubscription}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  preferences.isSubscribed ? 'bg-accent' : 'bg-gray-300'
+                  preferences.isSubscribed ? 'bg-primary-orange' : 'bg-gray-300'
                 }`}
               >
                 <span
@@ -126,7 +147,7 @@ export function Settings() {
             </div>
 
             {preferences.isSubscribed && (
-              <div className="p-4 bg-neutral-light rounded-lg">
+              <div className="p-4 bg-primary-cream/50 rounded-lg">
                 <h3 className="text-lg font-medium text-primary-dark mb-4">Delivery Frequency</h3>
                 <div className="space-y-3">
                   <label className="flex items-center cursor-pointer">
@@ -136,11 +157,11 @@ export function Settings() {
                       value="daily"
                       checked={preferences.frequency === 'daily'}
                       onChange={() => handleFrequencyChange('daily')}
-                      className="mr-3 text-accent focus:ring-accent"
+                      className="mr-3 text-primary-orange focus:ring-primary-orange"
                     />
                     <div>
                       <span className="font-medium text-primary-dark">Daily</span>
-                      <p className="text-sm text-neutral-dark">
+                      <p className="text-sm text-primary-dark/70">
                         Get a summary of your previous day's calendar every morning
                       </p>
                     </div>
@@ -153,11 +174,11 @@ export function Settings() {
                       value="weekly"
                       checked={preferences.frequency === 'weekly'}
                       onChange={() => handleFrequencyChange('weekly')}
-                      className="mr-3 text-accent focus:ring-accent"
+                      className="mr-3 text-primary-orange focus:ring-primary-orange"
                     />
                     <div>
                       <span className="font-medium text-primary-dark">Weekly</span>
-                      <p className="text-sm text-neutral-dark">
+                      <p className="text-sm text-primary-dark/70">
                         Receive a comprehensive weekly review every Monday morning
                       </p>
                     </div>
@@ -168,15 +189,15 @@ export function Settings() {
 
             <div className="flex justify-end space-x-4 pt-6">
               <button
-                onClick={() => navigate('/dashboard')}
-                className="px-6 py-2 border border-neutral-dark text-neutral-dark rounded-lg hover:bg-neutral-light transition-colors"
+                onClick={handleBackToDashboard}
+                className="px-6 py-2 border border-primary-gray text-primary-dark rounded-lg hover:bg-primary-cream/30 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-primary-orange text-white rounded-lg hover:bg-primary-orange/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Saving...' : 'Save Preferences'}
               </button>
@@ -184,7 +205,7 @@ export function Settings() {
           </div>
         </div>
 
-        <div className="max-w-2xl mx-auto mt-6 text-center text-sm text-neutral-dark">
+        <div className="max-w-2xl mx-auto mt-6 text-center text-sm text-primary-dark/60">
           <p>
             Email summaries help you stay on top of your time management goals without 
             needing to log in every day.
