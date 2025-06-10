@@ -1,0 +1,11 @@
+# testing
+/coverage
+
+# misc
+.DS_Store
+*.pem
+
+# node
+/node_modules
+/app/node_modules
+*.log 

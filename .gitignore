@@ -1,6 +1,13 @@
 # Dependencies
 /node_modules
-/server/node_modules
+/app/node_modules/
+node_modules/
+
+# Build output
+/dist/
+/app/dist/
+/build/
+/app/build/
 
 # Logs
 logs
