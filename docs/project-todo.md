@@ -5,11 +5,22 @@
 ### Plan
 - [x] Center login button on `Landing.tsx`.
 - [x] Update project dependencies.
+- [x] Fix app loading issues after dependency upgrades.
 - [ ] Add integration tests.
 - [ ] Set up GitHub Actions CI/CD.
 
-### In Progress
-- [ ] Adding integration tests.
+### Completed
+- Centered login button on Landing page
+- Updated all project dependencies to latest versions
+- Fixed TypeScript configuration issues with vite.config.ts
+- Fixed type errors in calendar service (null vs undefined)
+- Fixed CORS configuration to support both ports 3000 and 3001
+- Fixed TextEncoder/TextDecoder issue in tests for React Router v7
+- Fixed PostCSS configuration for Tailwind CSS v4 (installed @tailwindcss/postcss)
+
+### Notes
+- Major upgrades included: React 18→19, React Router 6→7, Vite 5→6, Express 4→5, ESLint 8→9, Tailwind CSS 3→4
+- Tailwind CSS v4 requires the separate @tailwindcss/postcss package
 
 ---
 
