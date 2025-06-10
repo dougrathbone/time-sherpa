@@ -2,7 +2,7 @@
 
 > AI-powered Google Calendar analysis tool for leaders and executives to gain insights into their time management.
 
-![CI Status](https://github.com/yourusername/time-sherpa/workflows/CI/badge.svg)
+![CI Status](https://github.com/dougrathbone/time-sherpa/workflows/CI/badge.svg)
 ![TimeSherpa Dashboard](https://img.shields.io/badge/status-beta-yellow)
 ![TypeScript](https://img.shields.io/badge/TypeScript-4.9+-blue)
 ![React](https://img.shields.io/badge/React-18.2+-61DAFB)
