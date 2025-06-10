@@ -1,6 +1,5 @@
 import { IEmailService, EmailOptions } from '../interfaces/IEmailService';
 import nodemailer from 'nodemailer';
-import { TransportOptions } from 'nodemailer';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 /**
