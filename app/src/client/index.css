@@ -1,31 +1,88 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind CSS v4 Theme Configuration */
+@theme {
+  /* Define colors - in v4, hyphenated names like primary-orange become single color tokens */
+  --color-primary-orange: #FF5B04;
+  --color-primary-teal: #075056;
+  --color-primary-dark: #233038;
+  --color-primary-cream: #FDF6E3;
+  --color-primary-gray: #D3DBDD;
+  --color-primary-yellow: #F4D47C;
+
+  /* Font Family */
+  --font-sans: Inter, system-ui, sans-serif;
+}
 
 @layer base {
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-sans);
   }
   
   body {
-    @apply bg-primary-cream text-primary-dark;
+    background-color: var(--color-primary-cream);
+    color: var(--color-primary-dark);
+  }
+  
+  /* Ensure all interactive elements have pointer cursor */
+  button:not(:disabled),
+  a,
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-orange text-white px-6 py-3 rounded-lg font-medium hover:bg-opacity-90 transition-colors duration-200 flex items-center gap-2;
+    background-color: var(--color-primary-orange);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+  
+  .btn-primary:hover {
+    opacity: 0.9;
   }
   
   .btn-secondary {
-    @apply bg-primary-teal text-white px-6 py-3 rounded-lg font-medium hover:bg-opacity-90 transition-colors duration-200;
+    background-color: var(--color-primary-teal);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: opacity 0.2s;
+    cursor: pointer;
+  }
+  
+  .btn-secondary:hover {
+    opacity: 0.9;
   }
   
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-primary-gray/30 p-6;
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    border: 1px solid rgb(211 219 221 / 0.3);
+    padding: 1.5rem;
   }
   
   .loading-spinner {
-    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-primary-orange;
+    animation: spin 1s linear infinite;
+    border-radius: 9999px;
+    height: 2rem;
+    width: 2rem;
+    border-bottom: 2px solid var(--color-primary-orange);
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 } 
