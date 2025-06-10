@@ -1,11 +1,35 @@
-# TimeSherpa Project TODO
+# TimeSherpa Project Log
 
-## Current Status: Initial Setup Phase
+## 2024-07-29
 
-### Completed
-- [x] Project structure created with /app and /docs directories
-- [x] Google OAuth configuration set up (client ID and secret)
-- [x] Project requirements documented in project-guide.md
+### Plan
+- [x] Center login button on `Landing.tsx`.
+- [x] Update project dependencies.
+- [ ] Add integration tests.
+- [ ] Set up GitHub Actions CI/CD.
+
+### In Progress
+- [ ] Adding integration tests.
+
+---
+
+## Previous Notes
+
+### Completed Tasks
+- Project structure created with /app and /docs directories
+- Google OAuth configuration set up (client ID and secret)
+- Project requirements documented in project-guide.md
+- **Phase 1: Project Setup & Dependencies** (Create package.json, TypeScript config, build tools, Tailwind CSS)
+- **Phase 2: Backend Setup** (Express server, Google OAuth, API routes, Calendar & Gemini integration)
+- **Phase 3: Frontend Setup** (React app, landing page, OAuth flow, dashboard layout, loading states)
+- **Phase 4: Core Features** (Calendar data fetching, AI categorization, visualizations, suggestions)
+- **Phase 5: Testing & Polish** (Basic unit tests, UI/UX polish)
+
+### Architecture Notes
+- Architecture: Single Node.js application serving both client and server
+- Stateless design - no persistent data storage
+- Colors: #FF5B04, #075056, #233038, #FDF6E3, #D3DBDD, #F4D47C
+- Focus on clean, modern, friendly UI
 
 ### Today's Goal: Build Initial Working Website
 
