@@ -52,6 +52,7 @@ export function Settings() {
       );
       setPreferences(response.data);
     } catch (error) {
+      console.error('Error fetching preferences:', error);
       const errorMessage = getErrorMessage(error);
       setMessage({ type: 'error', text: errorMessage });
       if (axios.isAxiosError(error) && error.response?.status === 401) {

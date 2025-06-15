@@ -28,6 +28,11 @@ describe('errorHandling utilities', () => {
   });
 
   describe('withRetry', () => {
+    beforeEach(() => {
+      // Reset axios.isAxiosError mock for each test
+      mockedIsAxiosError.mockReset();
+    });
+
     it('returns result on first successful attempt', async () => {
       const mockFn = jest.fn().mockResolvedValue('success');
       
@@ -38,9 +43,15 @@ describe('errorHandling utilities', () => {
     });
 
     it('retries on failure and eventually succeeds', async () => {
+      // Create axios-like errors
+      const error1 = { response: { status: 500 }, isAxiosError: true };
+      const error2 = { response: { status: 503 }, isAxiosError: true };
+      
+      mockedIsAxiosError.mockReturnValue(true);
+      
       const mockFn = jest.fn()
-        .mockRejectedValueOnce(new Error('First failure'))
-        .mockRejectedValueOnce(new Error('Second failure'))
+        .mockRejectedValueOnce(error1)
+        .mockRejectedValueOnce(error2)
         .mockResolvedValue('success');
       
       const result = await withRetry(mockFn, { retryDelay: 10 });
@@ -50,10 +61,13 @@ describe('errorHandling utilities', () => {
     });
 
     it('throws error after max retries', async () => {
-      const mockFn = jest.fn().mockRejectedValue(new Error('Always fails'));
+      const error = { response: { status: 500 }, isAxiosError: true };
+      mockedIsAxiosError.mockReturnValue(true);
+      
+      const mockFn = jest.fn().mockRejectedValue(error);
       
       await expect(withRetry(mockFn, { maxRetries: 2, retryDelay: 10 }))
-        .rejects.toThrow('Always fails');
+        .rejects.toEqual(error);
       
       expect(mockFn).toHaveBeenCalledTimes(3); // Initial + 2 retries
     });
@@ -70,6 +84,32 @@ describe('errorHandling utilities', () => {
       ).rejects.toThrow('Non-retryable');
       
       expect(mockFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry non-axios errors by default', async () => {
+      const error = new Error('Regular error');
+      mockedIsAxiosError.mockReturnValue(false);
+      
+      const mockFn = jest.fn().mockRejectedValue(error);
+      
+      await expect(withRetry(mockFn, { retryDelay: 10 }))
+        .rejects.toThrow('Regular error');
+      
+      expect(mockFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('retries network errors', async () => {
+      const error = { response: undefined, isAxiosError: true };
+      mockedIsAxiosError.mockReturnValue(true);
+      
+      const mockFn = jest.fn()
+        .mockRejectedValueOnce(error)
+        .mockResolvedValue('success');
+      
+      const result = await withRetry(mockFn, { retryDelay: 10 });
+      
+      expect(result).toBe('success');
+      expect(mockFn).toHaveBeenCalledTimes(2);
     });
   });
 

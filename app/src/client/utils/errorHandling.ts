@@ -22,6 +22,9 @@ const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
   maxRetries: 3,
   retryDelay: 1000,
   shouldRetry: (error: any) => {
+    // Don't retry if error is not an axios error
+    if (!axios.isAxiosError(error)) return false;
+    
     // Retry on network errors or 5xx server errors
     if (!error.response) return true; // Network error
     return error.response.status >= 500 && error.response.status < 600;
