@@ -1,20 +1,24 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
+interface TimeCategory {
+  name: string;
+  totalHours: number;
+  percentage: number;
+  eventCount: number;
+}
+
 interface CalendarAnalysis {
-  categories: {
-    name: string;
-    totalHours: number;
-    percentage: number;
-    eventCount: number;
-  }[];
+  categories: TimeCategory[];
   totalMeetingHours: number;
   focusHours: number;
-  keyInsights: string[];
-  topCollaborators: {
+  suggestions: string[];
+  topCollaborators: Array<{
     name: string;
-    hours: number;
-  }[];
+    meetingCount: number;
+    totalHours: number;
+  }>;
+  lastUpdated: string;
 }
 
 interface TimeAnalysisChartProps {

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import axios from 'axios';
 
 interface User {
   id: string;
@@ -25,14 +26,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const checkAuthStatus = async () => {
+  const checkAuth = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/auth/user', {
-        credentials: 'include',
+      const response = await axios.get('/api/auth/user', {
+        withCredentials: true,
       });
       
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = response.data;
         setUser(data.user);
       } else {
         setUser(null);
@@ -43,7 +45,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const login = () => {
     window.location.href = '/api/auth/google';
@@ -51,9 +53,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
+      await axios.post('/api/auth/logout', {}, {
+        withCredentials: true,
       });
       setUser(null);
       window.location.href = '/';
@@ -63,8 +64,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
+    // Add a small delay to ensure session is established after OAuth redirect
+    const timer = setTimeout(() => {
+      checkAuth();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [checkAuth]);
 
   return (
     <AuthContext.Provider
@@ -73,7 +79,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         loading,
         login,
         logout,
-        checkAuthStatus,
+        checkAuthStatus: checkAuth,
       }}
     >
       {children}

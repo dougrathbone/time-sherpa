@@ -7,7 +7,7 @@
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
     "build": "npm run client:build && npm run server:build",
     "start": "node dist/server.js",
-    "server:dev": "NODE_ENV=development nodemon --exec \"ts-node --project tsconfig-node.json src/server.ts\"",
+    "server:dev": "NODE_ENV=development nodemon",
     "server:build": "tsc -p tsconfig.server.json",
     "client:dev": "vite",
     "client:build": "vite build",
@@ -41,6 +41,7 @@
     "recharts": "^2.15.3"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -53,6 +54,7 @@
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/react": "^19.1.7",
     "@types/react-dom": "^19.1.6",
+    "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.34.0",
     "@typescript-eslint/parser": "^8.34.0",
     "@vitejs/plugin-react": "^4.5.2",
@@ -65,6 +67,7 @@
     "jest-environment-jsdom": "^30.0.0",
     "nodemon": "^3.1.10",
     "postcss": "^8.5.4",
+    "supertest": "^7.1.1",
     "tailwindcss": "^4.1.8",
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2",

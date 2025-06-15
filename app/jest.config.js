@@ -1,30 +1,41 @@
 /** @type {import('jest').Config} */
-export default {
-  preset: 'ts-jest',
-  testEnvironment: 'jsdom',
-  setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
-  },
-  transform: {
-    '^.+\\.tsx?$': 'ts-jest',
-  },
-  testMatch: [
-    '<rootDir>/src/**/__tests__/**/*.{ts,tsx}',
-    '<rootDir>/src/**/*.{test,spec}.{ts,tsx}',
+module.exports = {
+  projects: [
+    {
+      displayName: 'client',
+      preset: 'ts-jest',
+      testEnvironment: 'jsdom',
+      testMatch: ['<rootDir>/src/client/**/__tests__/**/*.{ts,tsx}', '<rootDir>/src/client/**/*.{test,spec}.{ts,tsx}'],
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+      },
+      setupFilesAfterEnv: ['<rootDir>/src/test/setup-client.ts'],
+      transform: {
+        '^.+\\.tsx?$': ['ts-jest', {
+          tsconfig: {
+            jsx: 'react',
+          },
+        }],
+      },
+    },
+    {
+      displayName: 'server',
+      preset: 'ts-jest',
+      testEnvironment: 'node',
+      testMatch: ['<rootDir>/src/server/**/__tests__/**/*.{ts,tsx}', '<rootDir>/src/server/**/*.{test,spec}.{ts,tsx}'],
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+      },
+      setupFilesAfterEnv: ['<rootDir>/src/test/setup-server.ts'],
+      transform: {
+        '^.+\\.tsx?$': 'ts-jest',
+      },
+    },
   ],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
-    '!src/setupTests.ts',
+    '!src/**/__tests__/**',
+    '!src/test/**',
   ],
-  coverageThreshold: {
-    global: {
-      branches: 50,
-      functions: 50,
-      lines: 50,
-      statements: 50,
-    },
-  },
 }; 

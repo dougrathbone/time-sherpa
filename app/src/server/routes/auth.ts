@@ -57,11 +57,19 @@ export function createAuthRouter(userRepository: IUserRepository): Router {
           }
         }
 
-        // Successful authentication
-        const redirectUrl = process.env.NODE_ENV === 'development'
-          ? 'http://localhost:3000/dashboard'
-          : '/dashboard';
-        res.redirect(redirectUrl);
+        // Ensure session is saved before redirect
+        req.session.save((err: any) => {
+          if (err) {
+            console.error('Error saving session:', err);
+          }
+          
+          // Successful authentication
+          const redirectUrl = process.env.NODE_ENV === 'development'
+            ? 'http://localhost:3000/dashboard'
+            : '/dashboard';
+          
+          res.redirect(redirectUrl);
+        });
       } catch (error) {
         console.error('Error saving user after authentication:', error);
         // Still redirect to dashboard even if save fails
@@ -97,6 +105,17 @@ export function createAuthRouter(userRepository: IUserRepository): Router {
         return res.status(500).json({ error: 'Logout failed' });
       }
       res.json({ message: 'Logged out successfully' });
+    });
+  });
+
+  // Debug endpoint to check session
+  router.get('/session-debug', (req: any, res: any) => {
+    res.json({
+      sessionID: req.sessionID,
+      session: req.session,
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user,
+      cookies: req.headers.cookie,
     });
   });
 

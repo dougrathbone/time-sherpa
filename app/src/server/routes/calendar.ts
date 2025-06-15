@@ -16,14 +16,8 @@ router.get('/analysis', ensureAuthenticated, async (req: any, res: any) => {
     // Analyze with Gemini AI
     const analysis = await analyzeCalendarData(events);
     
-    res.json({
-      analysis,
-      eventsCount: events.length,
-      dateRange: {
-        start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        end: new Date().toISOString()
-      }
-    });
+    // Return the analysis directly as the client expects
+    res.json(analysis);
   } catch (error) {
     console.error('Calendar analysis error:', error);
     res.status(500).json({ 
@@ -116,11 +110,8 @@ if (process.env.NODE_ENV === 'development') {
       
       const analysis = await analyzeCalendarData(sampleEvents);
       
-      res.json({
-        message: 'Test analysis complete',
-        analysis,
-        eventsCount: sampleEvents.length
-      });
+      // Return the analysis directly as the client expects
+      res.json(analysis);
     } catch (error) {
       console.error('Test analysis error:', error);
       res.status(500).json({ 

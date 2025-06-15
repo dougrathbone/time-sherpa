@@ -1,9 +1,16 @@
-import { JsonUserRepository } from '../JsonUserRepository';
+import { JsonUserRepository } from '../jsonUserRepository';
 import { User } from '../../interfaces/IUserRepository';
-import fs from 'fs/promises';
-import path from 'path';
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import * as encryption from '../../utils/encryption';
 
+// Mock modules
 jest.mock('fs/promises');
+jest.mock('../../utils/encryption');
+
+// Cast mocked modules
+const mockFs = fs as jest.Mocked<typeof fs>;
+const mockEncryption = encryption as jest.Mocked<typeof encryption>;
 
 describe('JsonUserRepository', () => {
   let repository: JsonUserRepository;
@@ -11,17 +18,30 @@ describe('JsonUserRepository', () => {
   const encryptionKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
   beforeEach(() => {
-    repository = new JsonUserRepository(testDataDir, encryptionKey);
+    // Reset all mocks
     jest.clearAllMocks();
+    
+    // Setup default mock implementations
+    mockFs.access.mockRejectedValue({ code: 'ENOENT' });
+    mockFs.mkdir.mockResolvedValue(undefined);
+    mockFs.readFile.mockRejectedValue({ code: 'ENOENT' });
+    mockFs.writeFile.mockResolvedValue(undefined);
+    
+    // Setup encryption mock implementations
+    mockEncryption.encrypt.mockImplementation((text: string) => `encrypted_${text}`);
+    mockEncryption.decrypt.mockImplementation((text: string) => text.replace('encrypted_', ''));
+    mockEncryption.setEncryptionKey.mockImplementation(() => {});
+    
+    repository = new JsonUserRepository(testDataDir, encryptionKey);
   });
 
   describe('initialize', () => {
     it('should create data directory if it does not exist', async () => {
-      (fs.readFile as jest.Mock).mockRejectedValue({ code: 'ENOENT' });
+      mockFs.readFile.mockRejectedValue({ code: 'ENOENT' });
       
       await repository.initialize();
       
-      expect(fs.mkdir).toHaveBeenCalledWith(testDataDir, { recursive: true });
+      expect(mockFs.mkdir).toHaveBeenCalledWith(testDataDir, { recursive: true });
     });
 
     it('should load existing users from file', async () => {
@@ -29,16 +49,16 @@ describe('JsonUserRepository', () => {
         {
           googleId: 'user1',
           email: 'user1@example.com',
-          refreshToken: 'encrypted_token',
+          encryptedRefreshToken: 'encrypted_token',
           preferences: { isSubscribed: true, frequency: 'daily' },
         },
       ];
       
-      (fs.readFile as jest.Mock).mockResolvedValue(JSON.stringify(mockUsers));
+      mockFs.readFile.mockResolvedValue(JSON.stringify(mockUsers));
       
       await repository.initialize();
       
-      expect(fs.readFile).toHaveBeenCalledWith(
+      expect(mockFs.readFile).toHaveBeenCalledWith(
         path.join(testDataDir, 'users.json'),
         'utf-8'
       );
@@ -63,7 +83,7 @@ describe('JsonUserRepository', () => {
       
       await repository.save(newUser);
       
-      expect(fs.writeFile).toHaveBeenCalled();
+      expect(mockFs.writeFile).toHaveBeenCalled();
       const savedUser = await repository.findByGoogleId('user1');
       expect(savedUser).toBeTruthy();
       expect(savedUser?.email).toBe('user1@example.com');

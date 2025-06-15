@@ -1,30 +1,34 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
+import axios from 'axios';
 
-interface CalendarAnalysis {
-  categories: {
-    name: string;
-    totalHours: number;
-    percentage: number;
-    eventCount: number;
-  }[];
-  totalMeetingHours: number;
-  focusHours: number;
-  keyInsights: string[];
-  topCollaborators: {
-    name: string;
-    hours: number;
-  }[];
+interface TimeCategory {
+  name: string;
+  totalHours: number;
+  percentage: number;
+  eventCount: number;
+  events?: Array<{
+    summary: string;
+    start: string;
+    end: string;
+    duration: number;
+  }>;
 }
 
-interface ScheduleSuggestions {
+interface CalendarAnalysis {
+  categories: TimeCategory[];
+  totalMeetingHours: number;
+  focusHours: number;
   suggestions: string[];
-  anomalies: string[];
-  focusTimeRecommendations: string[];
+  topCollaborators: Array<{
+    name: string;
+    meetingCount: number;
+    totalHours: number;
+  }>;
+  lastUpdated: string;
 }
 
 interface CalendarAnalysisState {
   analysis: CalendarAnalysis | null;
-  suggestions: ScheduleSuggestions | null;
   loading: boolean;
   error: string | null;
   lastFetched: Date | null;
@@ -32,12 +36,15 @@ interface CalendarAnalysisState {
 
 interface CalendarAnalysisContextType extends CalendarAnalysisState {
   fetchAnalysis: () => Promise<void>;
-  fetchSuggestions: () => Promise<void>;
+  refreshAnalysis: () => Promise<void>;
   clearData: () => void;
-  isStale: () => boolean;
+  isStale: boolean;
 }
 
 const CalendarAnalysisContext = createContext<CalendarAnalysisContextType | undefined>(undefined);
+
+// Cache duration in milliseconds (10 minutes)
+const CACHE_DURATION = 10 * 60 * 1000;
 
 interface CalendarAnalysisProviderProps {
   children: ReactNode;
@@ -46,86 +53,142 @@ interface CalendarAnalysisProviderProps {
 export function CalendarAnalysisProvider({ children }: CalendarAnalysisProviderProps) {
   const [state, setState] = useState<CalendarAnalysisState>({
     analysis: null,
-    suggestions: null,
     loading: false,
     error: null,
     lastFetched: null,
   });
 
-  const fetchAnalysis = useCallback(async () => {
-    if (state.loading) return; // Prevent duplicate requests
+  // Use ref to track loading state without causing re-renders
+  const loadingRef = useRef(false);
 
+  // Check if the cached data is stale
+  const checkIsStale = useCallback(() => {
+    if (!state.lastFetched) return true;
+    const timeDiff = Date.now() - state.lastFetched.getTime();
+    return timeDiff > CACHE_DURATION;
+  }, [state.lastFetched]);
+
+  const isStale = checkIsStale();
+
+  const fetchAnalysis = useCallback(async () => {
+    // Check current state inside the callback
+    setState(currentState => {
+      // If we have recent data and it's not stale, don't refetch
+      if (currentState.analysis && currentState.lastFetched) {
+        const timeDiff = Date.now() - currentState.lastFetched.getTime();
+        if (timeDiff < CACHE_DURATION) {
+          return currentState; // No state change
+        }
+      }
+
+      // Prevent duplicate requests
+      if (loadingRef.current) {
+        return currentState;
+      }
+
+      loadingRef.current = true;
+      return { ...currentState, loading: true, error: null };
+    });
+
+    // Only proceed if we actually started loading
+    if (!loadingRef.current) return;
+    
+    try {
+      const response = await axios.get('/api/calendar/analysis', {
+        withCredentials: true,
+      });
+      
+      setState(prev => ({
+        ...prev,
+        analysis: response.data,
+        loading: false,
+        lastFetched: new Date(),
+        error: null,
+      }));
+    } catch (err: any) {
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setState(prev => ({
+            ...prev,
+            error: 'Not authenticated',
+            loading: false,
+          }));
+        } else {
+          setState(prev => ({
+            ...prev,
+            error: err.response?.data?.error || 'Failed to fetch calendar analysis',
+            loading: false,
+          }));
+        }
+      } else {
+        setState(prev => ({
+          ...prev,
+          error: 'An unexpected error occurred',
+          loading: false,
+        }));
+      }
+    } finally {
+      loadingRef.current = false;
+    }
+  }, []); // No dependencies - function is stable
+
+  // Force refresh analysis (ignore cache)
+  const refreshAnalysis = useCallback(async () => {
+    loadingRef.current = true;
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      const response = await fetch('/api/calendar/analysis', {
-        credentials: 'include',
+      const response = await axios.get('/api/calendar/analysis', {
+        withCredentials: true,
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        setState(prev => ({
-          ...prev,
-          analysis: data.analysis,
-          loading: false,
-          lastFetched: new Date(),
-        }));
-      } else {
-        throw new Error('Failed to fetch analysis');
-      }
-    } catch (err) {
-      console.error('Error fetching analysis:', err);
       setState(prev => ({
         ...prev,
-        error: 'Failed to load calendar analysis',
+        analysis: response.data,
         loading: false,
+        lastFetched: new Date(),
+        error: null,
       }));
-    }
-  }, [state.loading]);
-
-  const fetchSuggestions = useCallback(async () => {
-    try {
-      const response = await fetch('/api/calendar/upcoming', {
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
+    } catch (err: any) {
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setState(prev => ({
+            ...prev,
+            error: 'Not authenticated',
+            loading: false,
+          }));
+        } else {
+          setState(prev => ({
+            ...prev,
+            error: err.response?.data?.error || 'Failed to fetch calendar analysis',
+            loading: false,
+          }));
+        }
+      } else {
         setState(prev => ({
           ...prev,
-          suggestions: data.suggestions,
+          error: 'An unexpected error occurred',
+          loading: false,
         }));
-      } else {
-        throw new Error('Failed to fetch suggestions');
       }
-    } catch (err) {
-      console.error('Error fetching suggestions:', err);
-      // Don't set error for suggestions as they're secondary
+    } finally {
+      loadingRef.current = false;
     }
-  }, []);
+  }, []); // No dependencies - function is stable
 
   const clearData = useCallback(() => {
     setState({
       analysis: null,
-      suggestions: null,
       loading: false,
       error: null,
       lastFetched: null,
     });
-  }, []);
-
-  const isStale = useCallback(() => {
-    if (!state.lastFetched) return true;
-    
-    // Consider data stale after 10 minutes
-    const staleThreshold = 10 * 60 * 1000; // 10 minutes in milliseconds
-    return (Date.now() - state.lastFetched.getTime()) > staleThreshold;
-  }, [state.lastFetched]);
+  }, []); // No dependencies - function is stable
 
   const contextValue: CalendarAnalysisContextType = {
     ...state,
     fetchAnalysis,
-    fetchSuggestions,
+    refreshAnalysis,
     clearData,
     isStale,
   };

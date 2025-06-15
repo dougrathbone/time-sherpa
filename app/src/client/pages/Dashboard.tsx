@@ -11,11 +11,10 @@ function Dashboard() {
   const { user, loading: authLoading, logout } = useAuth();
   const { 
     analysis, 
-    suggestions, 
     loading, 
     error, 
     fetchAnalysis, 
-    fetchSuggestions, 
+    refreshAnalysis,
     clearData,
     isStale,
     lastFetched 
@@ -38,21 +37,13 @@ function Dashboard() {
 
   useEffect(() => {
     if (user) {
-      // Only fetch if we don't have data or if it's stale
-      if (!analysis || isStale()) {
-        fetchAnalysis();
-      }
-      
-      // Always fetch suggestions as they're for upcoming events
-      if (!suggestions) {
-        fetchSuggestions();
-      }
+      // Fetch analysis if we don't have data
+      fetchAnalysis();
     }
-  }, [user, analysis, suggestions, isStale, fetchAnalysis, fetchSuggestions]);
+  }, [user, fetchAnalysis]);
 
   const handleRefresh = async () => {
-    await fetchAnalysis();
-    await fetchSuggestions();
+    await refreshAnalysis();
   };
 
   const handleDismissPrompt = () => {
@@ -145,9 +136,9 @@ function Dashboard() {
         {analysis && (
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-2 text-sm text-primary-dark/60">
-              <div className={`w-2 h-2 rounded-full ${isStale() ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${isStale ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
               {getDataFreshnessText()}
-              {isStale() && <span className="text-yellow-600">(Data may be outdated)</span>}
+              {isStale && <span className="text-yellow-600">(Data may be outdated)</span>}
             </div>
             <button
               onClick={handleRefresh}
@@ -179,13 +170,13 @@ function Dashboard() {
             </div>
 
             {/* Key Insights */}
-            {analysis && analysis.keyInsights.length > 0 && (
+            {analysis && analysis.suggestions && analysis.suggestions.length > 0 && (
               <div className="card mt-6">
                 <h3 className="text-xl font-semibold text-primary-dark mb-4">
                   Key Insights
                 </h3>
                 <ul className="space-y-2">
-                  {analysis.keyInsights.map((insight, index) => (
+                  {analysis.suggestions.slice(0, 3).map((insight, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <div className="w-2 h-2 bg-primary-orange rounded-full mt-2 flex-shrink-0"></div>
                       <span className="text-primary-dark/80">{insight}</span>
@@ -198,10 +189,102 @@ function Dashboard() {
 
           {/* Suggestions Panel */}
           <div className="lg:col-span-1">
-            <SuggestionsPanel suggestions={suggestions} />
+            <SuggestionsPanel suggestions={analysis?.suggestions || []} />
+            
+            {/* Opportunities for Improvement */}
+            {analysis && (
+              <div className="card mt-6">
+                <h3 className="text-xl font-semibold text-primary-dark mb-4">
+                  Opportunities for Improvement
+                </h3>
+                <div className="space-y-4">
+                  {/* Focus Time Opportunity */}
+                  {analysis.focusHours < analysis.totalMeetingHours * 0.4 && (
+                    <div className="bg-primary-yellow/10 border border-primary-yellow/30 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-primary-yellow/20 rounded-full flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-primary-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-primary-dark mb-1">Increase Focus Time</h4>
+                          <p className="text-sm text-primary-dark/70">
+                            Your focus time is only {((analysis.focusHours / analysis.totalMeetingHours) * 100).toFixed(0)}% of your meeting time. 
+                            Consider blocking dedicated focus hours in your calendar.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Meeting Overload */}
+                  {analysis.totalMeetingHours > 30 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-primary-dark mb-1">Reduce Meeting Load</h4>
+                          <p className="text-sm text-primary-dark/70">
+                            You spent {analysis.totalMeetingHours.toFixed(1)} hours in meetings last month. 
+                            Review recurring meetings and consider which ones could be emails or async updates.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category Imbalance */}
+                  {analysis.categories && analysis.categories.length > 0 && 
+                   analysis.categories[0].percentage > 50 && (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-primary-dark mb-1">Balance Your Time</h4>
+                          <p className="text-sm text-primary-dark/70">
+                            {analysis.categories[0].name} takes up {analysis.categories[0].percentage.toFixed(0)}% of your time. 
+                            Consider delegating or redistributing responsibilities.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Default recommendation if no specific issues */}
+                  {(!analysis.focusHours || analysis.focusHours >= analysis.totalMeetingHours * 0.4) && 
+                   analysis.totalMeetingHours <= 30 && 
+                   (!analysis.categories || analysis.categories.length === 0 || analysis.categories[0].percentage <= 50) && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-primary-dark mb-1">Well Balanced Schedule</h4>
+                          <p className="text-sm text-primary-dark/70">
+                            Your time allocation looks healthy! Keep monitoring for changes and maintain your current balance.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             
             {/* Top Collaborators */}
-            {analysis && analysis.topCollaborators.length > 0 && (
+            {analysis && analysis.topCollaborators && analysis.topCollaborators.length > 0 && (
               <div className="card mt-6">
                 <h3 className="text-xl font-semibold text-primary-dark mb-4">
                   Top Collaborators
@@ -213,7 +296,7 @@ function Dashboard() {
                         {collaborator.name}
                       </span>
                       <span className="text-primary-dark/70">
-                        {collaborator.hours.toFixed(1)}h
+                        {collaborator.totalHours.toFixed(1)}h
                       </span>
                     </div>
                   ))}

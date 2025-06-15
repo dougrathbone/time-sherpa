@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCalendarAnalysis } from '../hooks/useCalendarAnalysis';
+import { useAuth } from '../hooks/useAuth';
 import axios from 'axios';
 
 interface SubscriptionPreferences {
@@ -10,7 +11,8 @@ interface SubscriptionPreferences {
 
 export function Settings() {
   const navigate = useNavigate();
-  const { analysis, loading: analysisLoading } = useCalendarAnalysis();
+  const { user, checkAuthStatus } = useAuth();
+  const { analysis, loading: analysisLoading, fetchAnalysis, refreshAnalysis, lastFetched } = useCalendarAnalysis();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<SubscriptionPreferences>({
@@ -20,8 +22,16 @@ export function Settings() {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
+    // Fetch user preferences on mount
     fetchPreferences();
   }, []);
+
+  useEffect(() => {
+    // Redirect if not authenticated
+    if (!loading && !user) {
+      navigate('/');
+    }
+  }, [user, loading, navigate]);
 
   const fetchPreferences = async () => {
     try {
@@ -101,8 +111,8 @@ export function Settings() {
         <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
           <h2 className="text-2xl font-semibold text-primary-dark mb-6">Email Subscription</h2>
           
-          {/* Analysis Status */}
-          {!analysisLoading && !analysis && (
+          {/* Analysis Status - Only show if truly no analysis exists */}
+          {!analysisLoading && !analysis && !lastFetched && (
             <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg mb-6">
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -35,11 +35,16 @@ app.use(helmet({
   },
 }));
 
-// CORS configuration
+// CORS configuration - must be before session middleware
 app.use(cors({
   origin: isDevelopment ? 'http://localhost:3000' : process.env.CLIENT_URL || false,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Trust proxy for secure cookies behind reverse proxies
+app.set('trust proxy', 1);
 
 // Body parsing middleware
 app.use(express.json());
@@ -47,15 +52,30 @@ app.use(express.urlencoded({ extended: true }));
 
 // Session configuration
 app.use(session({
+  name: 'timesherpa.sid', // Custom session name
   secret: process.env.SESSION_SECRET || 'your-session-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: !isDevelopment,
+    secure: false, // Set to false in development to work with HTTP
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax', // Allow cookies to be sent with top-level navigations
+    path: '/', // Explicitly set path
   },
 }));
+
+// Debug middleware for development
+if (isDevelopment) {
+  app.use((req: any, res, next) => {
+    console.log(`[${req.method}] ${req.path}`, {
+      sessionID: req.sessionID,
+      isAuthenticated: req.isAuthenticated?.(),
+      user: req.user?.email,
+    });
+    next();
+  });
+}
 
 // Passport middleware
 app.use(passport.initialize());
@@ -65,7 +85,25 @@ app.use(passport.session());
 setupGoogleStrategy();
 
 // Initialize user repository
-const userRepository = new JsonUserRepository(path.join(__dirname, '..', 'data'));
+const encryptionKey = process.env.ENCRYPTION_KEY;
+if (!encryptionKey) {
+  console.warn('WARNING: ENCRYPTION_KEY not set. Using default key for development.');
+  // Generate a default key for development only
+  const defaultKey = isDevelopment 
+    ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+    : null;
+  
+  if (!defaultKey) {
+    throw new Error('ENCRYPTION_KEY environment variable is required in production');
+  }
+  
+  process.env.ENCRYPTION_KEY = defaultKey;
+}
+
+const userRepository = new JsonUserRepository(
+  path.join(__dirname, '..', 'data'),
+  encryptionKey || process.env.ENCRYPTION_KEY
+);
 userRepository.initialize().catch(err => {
   console.error('Failed to initialize user repository:', err);
 });

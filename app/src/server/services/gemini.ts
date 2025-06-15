@@ -11,10 +11,13 @@ export interface CalendarAnalysis {
   totalMeetingHours: number;
   focusHours: number;
   keyInsights: string[];
+  suggestions: string[];
   topCollaborators: {
     name: string;
-    hours: number;
+    totalHours: number;
+    meetingCount: number;
   }[];
+  lastUpdated: string;
 }
 
 export interface ScheduleSuggestions {
@@ -140,12 +143,18 @@ Return ONLY valid JSON in this exact structure:
     "Your 1:1s are well-distributed across your team",
     "Consider blocking more focus time - you only have 8 hours this month"
   ],
+  "suggestions": [
+    "Block 2-3 hours of focus time each day",
+    "Consider delegating some recurring meetings"
+  ],
   "topCollaborators": [
     {
       "name": "John Doe",
-      "hours": 5.5
+      "totalHours": 5.5,
+      "meetingCount": 8
     }
-  ]
+  ],
+  "lastUpdated": "2024-01-15T10:30:00Z"
 }
 `;
 }
@@ -200,7 +209,22 @@ function parseHistoricalAnalysis(analysisText: string, events: CalendarEvent[]):
     // Try to extract JSON from the response
     const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // Ensure all required fields are present
+      return {
+        categories: parsed.categories || [],
+        totalMeetingHours: parsed.totalMeetingHours || 0,
+        focusHours: parsed.focusHours || 0,
+        keyInsights: parsed.keyInsights || [],
+        suggestions: parsed.suggestions || parsed.keyInsights || [],
+        topCollaborators: (parsed.topCollaborators || []).map((collab: any) => ({
+          name: collab.name,
+          totalHours: collab.totalHours || collab.hours || 0,
+          meetingCount: collab.meetingCount || 1
+        })),
+        lastUpdated: parsed.lastUpdated || new Date().toISOString()
+      };
     }
   } catch (error) {
     console.error('Error parsing Gemini analysis:', error);
@@ -230,7 +254,7 @@ function parseUpcomingAnalysis(analysisText: string): ScheduleSuggestions {
 function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
   // Basic categorization based on simple rules
   const categories = new Map<string, { hours: number; count: number }>();
-  const collaborators = new Map<string, number>();
+  const collaborators = new Map<string, { hours: number; meetingCount: number }>();
   
   events.forEach(event => {
     const duration = calculateEventDuration(event);
@@ -260,7 +284,11 @@ function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
     // Track collaborators
     event.attendees?.forEach(attendee => {
       const name = attendee.displayName || attendee.email || 'Unknown';
-      collaborators.set(name, (collaborators.get(name) || 0) + duration);
+      const current = collaborators.get(name) || { hours: 0, meetingCount: 0 };
+      collaborators.set(name, {
+        hours: current.hours + duration,
+        meetingCount: current.meetingCount + 1
+      });
     });
   });
   
@@ -278,11 +306,12 @@ function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
   
   // Get top collaborators
   const topCollaborators = Array.from(collaborators.entries())
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1].hours - a[1].hours)
     .slice(0, 5)
-    .map(([name, hours]) => ({
+    .map(([name, data]) => ({
       name,
-      hours: Math.round(hours * 10) / 10
+      totalHours: Math.round(data.hours * 10) / 10,
+      meetingCount: data.meetingCount
     }));
   
   // Generate insights
@@ -296,7 +325,7 @@ function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
   ];
   
   if (topCollaborators.length > 0) {
-    keyInsights.push(`You spend the most time with ${topCollaborators[0].name} (${topCollaborators[0].hours} hours)`);
+    keyInsights.push(`You spend the most time with ${topCollaborators[0].name} (${topCollaborators[0].totalHours} hours)`);
   }
   
   return {
@@ -304,6 +333,8 @@ function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
     totalMeetingHours: Math.round(meetingHours * 10) / 10,
     focusHours: Math.round(focusHours * 10) / 10,
     keyInsights,
-    topCollaborators
+    suggestions: [],
+    topCollaborators,
+    lastUpdated: new Date().toISOString()
   };
 } 
