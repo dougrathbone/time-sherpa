@@ -1,9 +1,38 @@
 import React from 'react';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { CalendarAnalysisProvider, useCalendarAnalysis } from '../useCalendarAnalysis';
 import axios from 'axios';
 
-jest.mock('axios');
+jest.mock('axios', () => ({
+  get: jest.fn(),
+  isAxiosError: jest.fn(),
+}));
+
+// Mock the error handling utilities
+jest.mock('../../utils/errorHandling', () => ({
+  withRetry: jest.fn(async (fn) => {
+    // Execute the function without retries in tests
+    try {
+      return await fn();
+    } catch (error) {
+      throw error;
+    }
+  }),
+  getErrorMessage: jest.fn((error: any) => {
+    if (error?.response?.status === 401) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (error?.response?.status >= 500) {
+      return 'The server is experiencing issues. Please try again later.';
+    }
+    return 'An error occurred';
+  }),
+  ERROR_MESSAGES: {
+    CALENDAR_FETCH_FAILED: 'Unable to fetch your calendar data. Please try again.',
+    ANALYSIS_FAILED: 'Unable to analyze your calendar. Please try again later.',
+  },
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('useCalendarAnalysis', () => {
@@ -29,11 +58,6 @@ describe('useCalendarAnalysis', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    
-    // Mock axios.isAxiosError
-    mockedAxios.isAxiosError = jest.fn((error: any): error is any => {
-      return error && error.isAxiosError === true;
-    }) as any;
     
     // Mock the initial auth check
     mockedAxios.get.mockImplementation((url) => {
@@ -83,15 +107,18 @@ describe('useCalendarAnalysis', () => {
   });
 
   it('should handle fetch error', async () => {
+    const error = {
+      response: { status: 500, data: { error: 'Server error' } },
+      isAxiosError: true,
+    };
+    
+    mockedAxios.isAxiosError.mockReturnValue(true);
     mockedAxios.get.mockImplementation((url) => {
       if (url === '/api/auth/user') {
         return Promise.resolve({ data: { user: { id: '123', name: 'Test User' } } });
       }
       if (url === '/api/calendar/analysis') {
-        return Promise.reject({
-          response: { status: 500, data: { error: 'Server error' } },
-          isAxiosError: true,
-        });
+        return Promise.reject(error);
       }
       return Promise.reject(new Error('Unknown URL'));
     });
@@ -102,21 +129,26 @@ describe('useCalendarAnalysis', () => {
       await result.current.fetchAnalysis();
     });
 
-    expect(result.current.analysis).toBeNull();
-    expect(result.current.loading).toBe(false);
-    expect(result.current.error).toBe('Server error');
+    await waitFor(() => {
+      expect(result.current.analysis).toBeNull();
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toBe('The server is experiencing issues. Please try again later.');
+    });
   });
 
   it('should handle 401 error', async () => {
+    const error = {
+      response: { status: 401, data: {} },
+      isAxiosError: true,
+    };
+    
+    mockedAxios.isAxiosError.mockReturnValue(true);
     mockedAxios.get.mockImplementation((url) => {
       if (url === '/api/auth/user') {
         return Promise.resolve({ data: { user: { id: '123', name: 'Test User' } } });
       }
       if (url === '/api/calendar/analysis') {
-        return Promise.reject({
-          response: { status: 401 },
-          isAxiosError: true,
-        });
+        return Promise.reject(error);
       }
       return Promise.reject(new Error('Unknown URL'));
     });
@@ -127,7 +159,9 @@ describe('useCalendarAnalysis', () => {
       await result.current.fetchAnalysis();
     });
 
-    expect(result.current.error).toBe('Not authenticated');
+    await waitFor(() => {
+      expect(result.current.error).toBe('Your session has expired. Please sign in again.');
+    });
   });
 
   it('should not refetch if data is fresh', async () => {

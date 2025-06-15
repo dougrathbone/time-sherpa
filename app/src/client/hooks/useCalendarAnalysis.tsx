@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { withRetry, getErrorMessage, ERROR_MESSAGES } from '../utils/errorHandling';
 
 interface TimeCategory {
   name: string;
@@ -94,9 +95,22 @@ export function CalendarAnalysisProvider({ children }: CalendarAnalysisProviderP
     if (!loadingRef.current) return;
     
     try {
-      const response = await axios.get('/api/calendar/analysis', {
-        withCredentials: true,
-      });
+      const response = await withRetry(
+        () => axios.get('/api/calendar/analysis', {
+          withCredentials: true,
+        }),
+        {
+          maxRetries: 3,
+          retryDelay: 1000,
+          shouldRetry: (error) => {
+            // Don't retry on auth errors
+            if (axios.isAxiosError(error) && error.response?.status === 401) {
+              return false;
+            }
+            return true;
+          }
+        }
+      );
       
       setState(prev => ({
         ...prev,
@@ -106,27 +120,12 @@ export function CalendarAnalysisProvider({ children }: CalendarAnalysisProviderP
         error: null,
       }));
     } catch (err: any) {
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 401) {
-          setState(prev => ({
-            ...prev,
-            error: 'Not authenticated',
-            loading: false,
-          }));
-        } else {
-          setState(prev => ({
-            ...prev,
-            error: err.response?.data?.error || 'Failed to fetch calendar analysis',
-            loading: false,
-          }));
-        }
-      } else {
-        setState(prev => ({
-          ...prev,
-          error: 'An unexpected error occurred',
-          loading: false,
-        }));
-      }
+      const errorMessage = getErrorMessage(err);
+      setState(prev => ({
+        ...prev,
+        error: errorMessage,
+        loading: false,
+      }));
     } finally {
       loadingRef.current = false;
     }
@@ -138,9 +137,22 @@ export function CalendarAnalysisProvider({ children }: CalendarAnalysisProviderP
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      const response = await axios.get('/api/calendar/analysis', {
-        withCredentials: true,
-      });
+      const response = await withRetry(
+        () => axios.get('/api/calendar/analysis', {
+          withCredentials: true,
+        }),
+        {
+          maxRetries: 3,
+          retryDelay: 1000,
+          shouldRetry: (error) => {
+            // Don't retry on auth errors
+            if (axios.isAxiosError(error) && error.response?.status === 401) {
+              return false;
+            }
+            return true;
+          }
+        }
+      );
       
       setState(prev => ({
         ...prev,
@@ -150,27 +162,12 @@ export function CalendarAnalysisProvider({ children }: CalendarAnalysisProviderP
         error: null,
       }));
     } catch (err: any) {
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 401) {
-          setState(prev => ({
-            ...prev,
-            error: 'Not authenticated',
-            loading: false,
-          }));
-        } else {
-          setState(prev => ({
-            ...prev,
-            error: err.response?.data?.error || 'Failed to fetch calendar analysis',
-            loading: false,
-          }));
-        }
-      } else {
-        setState(prev => ({
-          ...prev,
-          error: 'An unexpected error occurred',
-          loading: false,
-        }));
-      }
+      const errorMessage = getErrorMessage(err);
+      setState(prev => ({
+        ...prev,
+        error: errorMessage,
+        loading: false,
+      }));
     } finally {
       loadingRef.current = false;
     }
