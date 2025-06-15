@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCalendarAnalysis } from '../hooks/useCalendarAnalysis';
 import { useAuth } from '../hooks/useAuth';
 import axios from 'axios';
+import { withRetry, getErrorMessage, ERROR_MESSAGES } from '../utils/errorHandling';
 
 interface SubscriptionPreferences {
   isSubscribed: boolean;
@@ -35,12 +36,24 @@ export function Settings() {
 
   const fetchPreferences = async () => {
     try {
-      const response = await axios.get('/api/v1/subscription', {
-        withCredentials: true,
-      });
+      const response = await withRetry(
+        () => axios.get('/api/v1/subscription', {
+          withCredentials: true,
+        }),
+        {
+          maxRetries: 2,
+          shouldRetry: (error) => {
+            if (axios.isAxiosError(error) && error.response?.status === 401) {
+              return false;
+            }
+            return true;
+          }
+        }
+      );
       setPreferences(response.data);
     } catch (error) {
-      console.error('Error fetching preferences:', error);
+      const errorMessage = getErrorMessage(error);
+      setMessage({ type: 'error', text: errorMessage });
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         navigate('/');
       }
@@ -54,13 +67,19 @@ export function Settings() {
     setMessage(null);
     
     try {
-      await axios.put('/api/v1/subscription', preferences, {
-        withCredentials: true,
-      });
+      await withRetry(
+        () => axios.put('/api/v1/subscription', preferences, {
+          withCredentials: true,
+        }),
+        {
+          maxRetries: 2,
+          retryDelay: 500
+        }
+      );
       setMessage({ type: 'success', text: 'Preferences saved successfully!' });
     } catch (error) {
-      console.error('Error saving preferences:', error);
-      setMessage({ type: 'error', text: 'Failed to save preferences. Please try again.' });
+      const errorMessage = getErrorMessage(error);
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setSaving(false);
     }
