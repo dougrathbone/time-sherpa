@@ -67,7 +67,7 @@ app.use(session({
 
 // Debug middleware for development
 if (isDevelopment) {
-  app.use((req: any, res, next) => {
+  app.use((req: any, _res, next) => {
     console.log(`[${req.method}] ${req.path}`, {
       sessionID: req.sessionID,
       isAuthenticated: req.isAuthenticated?.(),

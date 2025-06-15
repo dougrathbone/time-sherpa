@@ -1,4 +1,4 @@
-import { JsonUserRepository } from '../jsonUserRepository';
+import { JsonUserRepository } from '../JsonUserRepository';
 import { User } from '../../interfaces/IUserRepository';
 import * as path from 'path';
 import * as fs from 'fs/promises';

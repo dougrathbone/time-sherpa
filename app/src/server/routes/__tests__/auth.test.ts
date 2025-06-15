@@ -26,17 +26,17 @@ describe('Auth Routes', () => {
     }));
 
     // Mock passport middleware
-    (passport.initialize as jest.Mock).mockReturnValue((req: any, res: any, next: any) => {
+    (passport.initialize as jest.Mock).mockReturnValue((req: any, _res: any, next: any) => {
       req._passport = { instance: passport };
       next();
     });
     
-    (passport.session as jest.Mock).mockReturnValue((req: any, res: any, next: any) => {
+    (passport.session as jest.Mock).mockReturnValue((_req: any, _res: any, next: any) => {
       next();
     });
 
     // Mock passport.authenticate to always return a middleware function
-    (passport.authenticate as jest.Mock).mockImplementation((strategy: string, options: any) => {
+    (passport.authenticate as jest.Mock).mockImplementation((strategy: string, _options: any) => {
       return (req: any, res: any, next: any) => {
         if (strategy === 'google' && !req.path.includes('callback')) {
           // Simulate redirect to Google
@@ -67,7 +67,7 @@ describe('Auth Routes', () => {
     };
 
     // Add isAuthenticated middleware before routes
-    app.use((req: any, res, next) => {
+    app.use((req: any, _res, next) => {
       req.isAuthenticated = () => !!req.session?.passport?.user;
       req.user = req.session?.passport?.user;
       req.logout = (callback: any) => {
