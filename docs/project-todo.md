@@ -2,6 +2,43 @@
 
 ## Current Status (2025-01-02)
 
+### GitHub Actions Fix - Round 3 (Updated)
+After the jest dependency fix, another issue appeared:
+
+**New Issue Found:**
+- **Deprecated GitHub Actions** - GitHub deprecated v3 of artifact actions
+
+**Fix Applied:**
+- Updated all actions from v3 to v4:
+  - `actions/upload-artifact@v3` → `actions/upload-artifact@v4` (2 instances)
+  - `codecov/codecov-action@v3` → `codecov/codecov-action@v4` (1 instance)
+
+**Files Modified:**
+- `.github/workflows/ci.yml` - Updated 3 action versions
+
+This should resolve all the GitHub Actions deprecation errors.
+
+### GitHub Actions Fix - Round 2 (Updated)
+After pushing the initial fixes, GitHub Actions revealed another issue:
+
+**New Issue Found:**
+- **Jest/ts-jest version mismatch** - The project had jest@30 but ts-jest@29, causing npm install to fail in CI
+
+**Fix Applied:**
+- Downgraded jest and related packages to version 29 to match ts-jest
+- Updated packages:
+  - jest: 30.0.0 → 29.7.0
+  - jest-environment-jsdom: 30.0.0 → 29.7.0
+  - ts-jest: 29.3.4 → 29.4.0
+  - @types/jest: kept at 29.5.14
+
+**Verification:**
+- ✅ All tests still pass (63 passing, 1 skipped)
+- ✅ TypeScript compilation passes
+- ✅ Build succeeds
+
+This fix needs to be committed and pushed to resolve the GitHub Actions failures.
+
 ### Developer Handover Notes (Updated by new developer - January 2, 2025)
 Hello! I'm picking up the project to fix the GitHub Actions failures. After reviewing the CI pipeline and running tests locally, here's what I found:
 
