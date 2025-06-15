@@ -66,9 +66,24 @@ describe('ErrorBoundary', () => {
     expect(screen.queryByText('Oops! Something went wrong')).not.toBeInTheDocument();
   });
 
-  it.skip('calls window.location.reload when refresh button is clicked', () => {
-    // Skipping this test due to jsdom limitations with window.location.reload
-    // The functionality works in the browser but is difficult to test in jsdom
-    // TODO: Consider using a different testing approach or mocking strategy
+  it('calls window.location.reload when refresh button is clicked', () => {
+    // Mock window.location.reload using the global location assign workaround
+    const { location } = window;
+    delete (window as any).location;
+    window.location = { reload: jest.fn() } as any;
+
+    render(
+      <ErrorBoundary>
+        <ThrowError shouldThrow={true} />
+      </ErrorBoundary>
+    );
+
+    const refreshButton = screen.getByRole('button', { name: /refresh page/i });
+    fireEvent.click(refreshButton);
+
+    expect(window.location.reload).toHaveBeenCalledTimes(1);
+
+    // Restore original location
+    window.location = location;
   });
 }); 
