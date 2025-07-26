@@ -27,6 +27,63 @@ router.get('/analysis', ensureAuthenticated, async (req: any, res: any) => {
   }
 });
 
+// Get week-over-week analysis
+router.get('/week-over-week', ensureAuthenticated, async (req: any, res: any) => {
+  try {
+    const user = req.user;
+    
+    // Get data for the past 4 weeks
+    const weeks = [];
+    const currentDate = new Date();
+    
+    for (let i = 0; i < 4; i++) {
+      const weekStart = new Date(currentDate);
+      weekStart.setDate(currentDate.getDate() - (7 * (i + 1)));
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+      
+      // Get calendar events for this week
+      const events = await getCalendarEvents(user.accessToken, weekStart, weekEnd);
+      
+      // Analyze this week's data
+      const analysis = await analyzeCalendarData(events) as any;
+      
+      weeks.push({
+        weekStart: weekStart.toISOString(),
+        weekEnd: weekEnd.toISOString(),
+        weekLabel: `Week of ${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+        analysis: {
+          totalMeetingHours: analysis.totalMeetingHours || 0,
+          focusHours: analysis.focusHours || 0,
+          focusTimePercentage: analysis.totalMeetingHours > 0 ? 
+            Math.round((analysis.focusHours / (analysis.totalMeetingHours + analysis.focusHours)) * 100) : 0,
+          categories: analysis.categories || [],
+          topCategory: analysis.categories?.[0] || null,
+          eventCount: events.length
+        }
+      });
+    }
+    
+    // Calculate week-over-week trends
+    const trends = calculateWeekOverWeekTrends(weeks);
+    
+    res.json({
+      weeks: weeks.reverse(), // Most recent week first
+      trends,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Week-over-week analysis error:', error);
+    res.status(500).json({ 
+      error: 'Failed to analyze week-over-week data',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Get upcoming events analysis
 router.get('/upcoming', ensureAuthenticated, async (req: any, res: any) => {
   try {
@@ -120,6 +177,41 @@ if (process.env.NODE_ENV === 'development') {
       });
     }
   });
+}
+
+// Helper function to calculate week-over-week trends
+function calculateWeekOverWeekTrends(weeks: any[]) {
+  if (weeks.length < 2) {
+    return {
+      meetingHours: { change: 0, direction: 'stable', changePercent: 0 },
+      focusHours: { change: 0, direction: 'stable', changePercent: 0 },
+      focusTimePercentage: { change: 0, direction: 'stable', changePercent: 0 },
+      eventCount: { change: 0, direction: 'stable', changePercent: 0 }
+    };
+  }
+  
+  // Compare most recent week (index 0 after reverse) with previous week (index 1)
+  const currentWeek = weeks[0].analysis;
+  const previousWeek = weeks[1].analysis;
+  
+  const calculateTrend = (current: number, previous: number) => {
+    const change = current - previous;
+    const changePercent = previous > 0 ? Math.round((change / previous) * 100) : 0;
+    let direction: 'up' | 'down' | 'stable' = 'stable';
+    
+    if (Math.abs(changePercent) >= 5) { // Only show trend if change is >= 5%
+      direction = change > 0 ? 'up' : 'down';
+    }
+    
+    return { change, direction, changePercent };
+  };
+  
+  return {
+    meetingHours: calculateTrend(currentWeek.totalMeetingHours, previousWeek.totalMeetingHours),
+    focusHours: calculateTrend(currentWeek.focusHours, previousWeek.focusHours),
+    focusTimePercentage: calculateTrend(currentWeek.focusTimePercentage, previousWeek.focusTimePercentage),
+    eventCount: calculateTrend(currentWeek.eventCount, previousWeek.eventCount)
+  };
 }
 
 export { router as calendarRoutes }; 

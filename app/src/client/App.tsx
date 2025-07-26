@@ -5,6 +5,7 @@ import { CalendarAnalysisProvider } from './hooks/useCalendarAnalysis';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
+import WeekOverWeekView from './pages/WeekOverWeekView';
 import { Settings } from './pages/Settings';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/week-over-week" element={<WeekOverWeekView />} />
               <Route path="/settings" element={
                 <ErrorBoundary fallback={
                   <div className="min-h-screen bg-primary-cream flex items-center justify-center">

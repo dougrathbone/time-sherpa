@@ -103,6 +103,12 @@ function Dashboard() {
                 <span className="text-primary-dark font-medium">{user.name}</span>
               </div>
               <button
+                onClick={() => navigate('/week-over-week')}
+                className="text-primary-dark/70 hover:text-primary-dark transition-colors"
+              >
+                Week over Week
+              </button>
+              <button
                 onClick={() => navigate('/settings')}
                 className="text-primary-dark/70 hover:text-primary-dark transition-colors"
               >
