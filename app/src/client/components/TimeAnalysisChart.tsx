@@ -1,25 +1,7 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-
-interface TimeCategory {
-  name: string;
-  totalHours: number;
-  percentage: number;
-  eventCount: number;
-}
-
-interface CalendarAnalysis {
-  categories: TimeCategory[];
-  totalMeetingHours: number;
-  focusHours: number;
-  suggestions: string[];
-  topCollaborators: Array<{
-    name: string;
-    meetingCount: number;
-    totalHours: number;
-  }>;
-  lastUpdated: string;
-}
+import ExpandableCategory from './ExpandableCategory';
+import { CalendarAnalysis } from '../shared/types';
 
 interface TimeAnalysisChartProps {
   analysis: CalendarAnalysis;
@@ -200,23 +182,12 @@ function TimeAnalysisChart({ analysis }: TimeAnalysisChartProps) {
         </h3>
         <div className="space-y-3">
           {analysis.categories.map((category, index) => (
-            <div key={category.name} className="flex items-center justify-between p-3 bg-white rounded-lg border border-primary-gray/20">
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                ></div>
-                <span className="font-medium text-primary-dark">{category.name}</span>
-              </div>
-              <div className="flex items-center gap-6 text-sm">
-                <span className="text-primary-dark/70">
-                  {category.totalHours.toFixed(1)}h ({category.percentage}%)
-                </span>
-                <span className="text-primary-dark/70">
-                  {category.eventCount} events
-                </span>
-              </div>
-            </div>
+            <ExpandableCategory
+              key={category.name}
+              category={category}
+              color={COLORS[index % COLORS.length]}
+              index={index}
+            />
           ))}
         </div>
       </div>

@@ -1,0 +1,20 @@
+{
+  "functions": {
+    "dist/server.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/dist/server.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/dist/client/$1"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+} 

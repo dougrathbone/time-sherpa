@@ -24,6 +24,22 @@ export interface CalendarEvent {
     email: string;
     displayName?: string;
   };
+  htmlLink?: string;
+}
+
+export function generateGoogleCalendarLink(event: CalendarEvent): string {
+  // If the event has an htmlLink from Google API, use it
+  if (event.htmlLink) {
+    return event.htmlLink;
+  }
+  
+  // Fallback: construct the link manually
+  const startTime = event.start.dateTime || event.start.date;
+  if (startTime) {
+    return `https://calendar.google.com/calendar/event?eid=${encodeURIComponent(event.id)}`;
+  }
+  
+  return `https://calendar.google.com/calendar/event?eid=${encodeURIComponent(event.id)}`;
 }
 
 export async function getCalendarEvents(
@@ -75,6 +91,7 @@ export async function getCalendarEvents(
         email: event.organizer.email || '',
         displayName: event.organizer.displayName,
       } : undefined,
+      htmlLink: event.htmlLink ?? undefined,
     }));
   } catch (error) {
     console.error('Error fetching calendar events:', error);
@@ -125,6 +142,7 @@ export async function getUserCalendarEvents(
         email: event.organizer.email || '',
         displayName: event.organizer.displayName,
       } : undefined,
+      htmlLink: event.htmlLink ?? undefined,
     }));
   } catch (error) {
     console.error('Error fetching calendar events:', error);

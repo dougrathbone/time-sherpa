@@ -52,8 +52,20 @@ const mockCalendarEvents = [
 
 const mockAnalysisResult = {
   categories: [
-    { name: '1:1 Meetings', totalHours: 4.0, percentage: 40, eventCount: 4 },
-    { name: 'Team Meetings', totalHours: 6.0, percentage: 60, eventCount: 4 }
+    { 
+      name: '1:1 Meetings', 
+      totalHours: 4.0, 
+      percentage: 40, 
+      eventCount: 4,
+      meetings: []
+    },
+    { 
+      name: 'Team Meetings', 
+      totalHours: 6.0, 
+      percentage: 60, 
+      eventCount: 4,
+      meetings: []
+    }
   ],
   totalMeetingHours: 10.0,
   focusHours: 2.0,
@@ -248,7 +260,13 @@ describe('Calendar Week Over Week API', () => {
 
     it('should calculate focus time percentage correctly', async () => {
       mockAnalyzeCalendarData.mockResolvedValue({
-        ...mockAnalysisResult,
+        categories: mockAnalysisResult.categories,
+        totalMeetingHours: mockAnalysisResult.totalMeetingHours,
+        focusHours: mockAnalysisResult.focusHours,
+        keyInsights: mockAnalysisResult.keyInsights,
+        suggestions: mockAnalysisResult.suggestions,
+        topCollaborators: mockAnalysisResult.topCollaborators,
+        lastUpdated: mockAnalysisResult.lastUpdated,
         totalMeetingHours: 20.0,
         focusHours: 10.0
       });
@@ -265,7 +283,13 @@ describe('Calendar Week Over Week API', () => {
 
     it('should handle zero meeting hours for focus percentage calculation', async () => {
       mockAnalyzeCalendarData.mockResolvedValue({
-        ...mockAnalysisResult,
+        categories: mockAnalysisResult.categories,
+        totalMeetingHours: mockAnalysisResult.totalMeetingHours,
+        focusHours: mockAnalysisResult.focusHours,
+        keyInsights: mockAnalysisResult.keyInsights,
+        suggestions: mockAnalysisResult.suggestions,
+        topCollaborators: mockAnalysisResult.topCollaborators,
+        lastUpdated: mockAnalysisResult.lastUpdated,
         totalMeetingHours: 0,
         focusHours: 5.0
       });

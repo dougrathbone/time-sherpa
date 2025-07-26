@@ -1,24 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { CalendarEvent } from './calendar';
+import { CalendarEvent, generateGoogleCalendarLink } from './calendar';
+import { CalendarAnalysis, MeetingDetail } from '../../shared/types';
 
-export interface CalendarAnalysis {
-  categories: {
-    name: string;
-    totalHours: number;
-    percentage: number;
-    eventCount: number;
-  }[];
-  totalMeetingHours: number;
-  focusHours: number;
-  keyInsights: string[];
-  suggestions: string[];
-  topCollaborators: {
-    name: string;
-    totalHours: number;
-    meetingCount: number;
-  }[];
-  lastUpdated: string;
-}
+export { CalendarAnalysis, MeetingDetail };
 
 export interface ScheduleSuggestions {
   suggestions: string[];
@@ -211,14 +195,17 @@ function parseHistoricalAnalysis(analysisText: string, events: CalendarEvent[]):
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       
-      // Ensure all required fields are present
+      // If AI analysis doesn't include meeting details, we'll use fallback
+      // which includes the meeting details. For now, we'll always use fallback
+      // to ensure we have meeting details for the expandable categories
+      const fallbackAnalysis = generateFallbackAnalysis(events);
+      
+      // Enhance the fallback with AI insights if available
       return {
-        categories: parsed.categories || [],
-        totalMeetingHours: parsed.totalMeetingHours || 0,
-        focusHours: parsed.focusHours || 0,
-        keyInsights: parsed.keyInsights || [],
-        suggestions: parsed.suggestions || parsed.keyInsights || [],
-        topCollaborators: (parsed.topCollaborators || []).map((collab: any) => ({
+        ...fallbackAnalysis,
+        keyInsights: parsed.keyInsights || fallbackAnalysis.keyInsights,
+        suggestions: parsed.suggestions || parsed.keyInsights || fallbackAnalysis.suggestions,
+        topCollaborators: (parsed.topCollaborators || fallbackAnalysis.topCollaborators).map((collab: any) => ({
           name: collab.name,
           totalHours: collab.totalHours || collab.hours || 0,
           meetingCount: collab.meetingCount || 1
@@ -253,7 +240,7 @@ function parseUpcomingAnalysis(analysisText: string): ScheduleSuggestions {
 
 function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
   // Basic categorization based on simple rules
-  const categories = new Map<string, { hours: number; count: number }>();
+  const categories = new Map<string, { hours: number; count: number; meetings: MeetingDetail[] }>();
   const collaborators = new Map<string, { hours: number; meetingCount: number }>();
   
   events.forEach(event => {
@@ -275,10 +262,24 @@ function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
       category = 'Small Group Meetings';
     }
     
-    const current = categories.get(category) || { hours: 0, count: 0 };
+    // Create meeting detail
+    const meetingDetail: MeetingDetail = {
+      id: event.id,
+      title: event.summary,
+      startTime: event.start.dateTime || event.start.date || '',
+      endTime: event.end.dateTime || event.end.date || '',
+      duration,
+      attendeeCount,
+      attendees: event.attendees || [],
+      googleCalendarLink: generateGoogleCalendarLink(event),
+      organizer: event.organizer
+    };
+    
+    const current = categories.get(category) || { hours: 0, count: 0, meetings: [] };
     categories.set(category, {
       hours: current.hours + duration,
-      count: current.count + 1
+      count: current.count + 1,
+      meetings: [...current.meetings, meetingDetail]
     });
     
     // Track collaborators
@@ -301,7 +302,8 @@ function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
     name,
     totalHours: Math.round(data.hours * 10) / 10,
     percentage: Math.round((data.hours / totalHours) * 100),
-    eventCount: data.count
+    eventCount: data.count,
+    meetings: data.meetings.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
   })).sort((a, b) => b.totalHours - a.totalHours);
   
   // Get top collaborators
