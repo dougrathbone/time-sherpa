@@ -4,8 +4,11 @@ import { useCalendarAnalysis } from '../hooks/useCalendarAnalysis';
 import { useNavigate } from 'react-router-dom';
 import TimeAnalysisChart from '../components/TimeAnalysisChart';
 import SuggestionsPanel from '../components/SuggestionsPanel';
+import ActionableInsightModal from '../components/ActionableInsightModal';
 import LoadingState from '../components/LoadingState';
 import { SubscriptionPrompt } from '../components/SubscriptionPrompt';
+import { ActionableSuggestion } from '../../shared/types';
+import axios from 'axios';
 
 function Dashboard() {
   const { user, loading: authLoading, logout } = useAuth();
@@ -21,6 +24,39 @@ function Dashboard() {
   } = useCalendarAnalysis();
   const navigate = useNavigate();
   const [showSubscriptionPrompt, setShowSubscriptionPrompt] = useState(true);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<ActionableSuggestion | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleSuggestionClick = (suggestion: ActionableSuggestion) => {
+    setSelectedSuggestion(suggestion);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedSuggestion(null);
+  };
+
+  const handleSchedule = async (suggestion: ActionableSuggestion, timeSlot: any) => {
+    try {
+      const response = await axios.post('/api/calendar/schedule-suggestion', {
+        suggestion,
+        timeSlot
+      }, {
+        withCredentials: true
+      });
+
+      if (response.data.success) {
+        // Refresh analysis to potentially get updated suggestions
+        refreshAnalysis();
+        // Show success message or notification
+        console.log('Successfully scheduled:', response.data);
+      }
+    } catch (error) {
+      console.error('Failed to schedule suggestion:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -195,7 +231,11 @@ function Dashboard() {
 
           {/* Suggestions Panel */}
           <div className="lg:col-span-1">
-            <SuggestionsPanel suggestions={analysis?.suggestions || []} />
+            <SuggestionsPanel 
+              suggestions={analysis?.suggestions || []} 
+              actionableSuggestions={analysis?.actionableSuggestions || null}
+              onSuggestionClick={handleSuggestionClick}
+            />
             
             {/* Opportunities for Improvement */}
             {analysis && (
@@ -312,6 +352,14 @@ function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* Actionable Insight Modal */}
+      <ActionableInsightModal
+        suggestion={selectedSuggestion}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSchedule={handleSchedule}
+      />
     </div>
   );
 }

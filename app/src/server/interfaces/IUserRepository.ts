@@ -1,6 +1,9 @@
+import { WorkweekSettings } from '../../shared/types';
+
 export interface SubscriptionPreferences {
   isSubscribed: boolean;
   frequency: 'daily' | 'weekly' | null;
+  workweek?: WorkweekSettings;
 }
 
 export interface User {

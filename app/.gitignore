@@ -5,6 +5,16 @@
 .DS_Store
 *.pem
 
+# sessions
+/sessions
+
+# user data (contains sensitive OAuth tokens)
+/data/users.json
+/data/users.json.backup
+.env.backup
+cookies.txt
+test_session.txt
+
 # node
 /node_modules
 /app/node_modules

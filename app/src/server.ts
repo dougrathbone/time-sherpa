@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import path from 'path';
 import dotenv from 'dotenv';
 import session from 'express-session';
+import FileStore from 'session-file-store';
 import passport from 'passport';
 
 import { createAuthRouter } from './server/routes/auth';
@@ -50,18 +51,32 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session configuration
+// Initialize session store
+const SessionFileStore = FileStore(session);
+const sessionStore = new SessionFileStore({
+  path: path.join(__dirname, '..', 'sessions'),
+  ttl: 86400, // 24 hours in seconds
+  retries: 5,
+  factor: 1,
+  minTimeout: 50,
+  maxTimeout: 100,
+  reapInterval: 3600, // 1 hour cleanup interval
+});
+
+// Session configuration with persistent store
 app.use(session({
   name: 'timesherpa.sid', // Custom session name
-  secret: process.env.SESSION_SECRET || 'your-session-secret-key',
+  secret: process.env.SESSION_SECRET || 'your-session-secret-key-change-in-production',
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
+  rolling: true, // Reset expiration on activity
   cookie: {
-    secure: false, // Set to false in development to work with HTTP
+    secure: !isDevelopment, // Use secure cookies in production
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax', // Allow cookies to be sent with top-level navigations
-    path: '/', // Explicitly set path
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days for persistent login
+    sameSite: isDevelopment ? 'lax' : 'none', // Allow cross-site cookies in production
+    path: '/',
   },
 }));
 

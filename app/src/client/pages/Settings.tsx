@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCalendarAnalysis } from '../hooks/useCalendarAnalysis';
 import { useAuth } from '../hooks/useAuth';
+import WorkweekSettings from '../components/WorkweekSettings';
+import { WorkweekSettings as WorkweekSettingsType } from '../../shared/types';
 import axios from 'axios';
 import { withRetry, getErrorMessage, ERROR_MESSAGES } from '../utils/errorHandling';
 
 interface SubscriptionPreferences {
   isSubscribed: boolean;
   frequency: 'daily' | 'weekly' | null;
+  workweek?: WorkweekSettingsType;
 }
 
 export function Settings() {
@@ -16,9 +19,20 @@ export function Settings() {
   const { analysis, loading: analysisLoading, fetchAnalysis, refreshAnalysis, lastFetched } = useCalendarAnalysis();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const defaultWorkweek: WorkweekSettingsType = {
+    monday: true,
+    tuesday: true,
+    wednesday: true,
+    thursday: true,
+    friday: true,
+    saturday: false,
+    sunday: false
+  };
+
   const [preferences, setPreferences] = useState<SubscriptionPreferences>({
     isSubscribed: false,
     frequency: null,
+    workweek: defaultWorkweek,
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -36,7 +50,8 @@ export function Settings() {
 
   const fetchPreferences = async () => {
     try {
-      const response = await withRetry(
+      // Fetch subscription preferences
+      const subscriptionResponse = await withRetry(
         () => axios.get('/api/v1/subscription', {
           withCredentials: true,
         }),
@@ -50,7 +65,27 @@ export function Settings() {
           }
         }
       );
-      setPreferences(response.data);
+
+      // Fetch workweek preferences
+      const workweekResponse = await withRetry(
+        () => axios.get('/api/auth/preferences', {
+          withCredentials: true,
+        }),
+        {
+          maxRetries: 2,
+          shouldRetry: (error) => {
+            if (axios.isAxiosError(error) && error.response?.status === 401) {
+              return false;
+            }
+            return true;
+          }
+        }
+      );
+
+      setPreferences({
+        ...subscriptionResponse.data,
+        workweek: workweekResponse.data.preferences?.workweek || defaultWorkweek
+      });
     } catch (error) {
       console.error('Error fetching preferences:', error);
       const errorMessage = getErrorMessage(error);
@@ -88,9 +123,41 @@ export function Settings() {
 
   const handleToggleSubscription = () => {
     setPreferences(prev => ({
+      ...prev,
       isSubscribed: !prev.isSubscribed,
       frequency: !prev.isSubscribed ? 'weekly' : null,
     }));
+  };
+
+  const handleSaveWorkweek = async (workweek: WorkweekSettingsType) => {
+    try {
+      await withRetry(
+        () => axios.put('/api/auth/workweek', { workweek }, {
+          withCredentials: true,
+        }),
+        {
+          maxRetries: 2,
+          retryDelay: 500
+        }
+      );
+      
+      // Update local state
+      setPreferences(prev => ({
+        ...prev,
+        workweek
+      }));
+      
+      setMessage({ type: 'success', text: 'Workweek settings saved successfully!' });
+      
+      // Refresh analysis since workweek affects scheduling
+      if (refreshAnalysis) {
+        refreshAnalysis();
+      }
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      setMessage({ type: 'error', text: errorMessage });
+      throw error; // Re-throw so the component can handle the error state
+    }
   };
 
   const handleFrequencyChange = (frequency: 'daily' | 'weekly') => {
@@ -233,6 +300,15 @@ export function Settings() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Workweek Settings */}
+        <div className="max-w-2xl mx-auto mt-8">
+          <WorkweekSettings
+            settings={preferences.workweek || defaultWorkweek}
+            onSave={handleSaveWorkweek}
+            loading={loading}
+          />
         </div>
 
         <div className="max-w-2xl mx-auto mt-6 text-center text-sm text-primary-dark/60">

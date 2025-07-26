@@ -1,8 +1,349 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CalendarEvent, generateGoogleCalendarLink } from './calendar';
-import { CalendarAnalysis, MeetingDetail } from '../../shared/types';
+import { CalendarAnalysis, MeetingDetail, ActionableSuggestion, WorkweekSettings } from '../../shared/types';
+import { getNextWorkdays, defaultWorkweek } from '../utils/workweekUtils';
 
 export { CalendarAnalysis, MeetingDetail };
+
+function generateActionableSuggestions(
+  suggestions: string[], 
+  events: CalendarEvent[],
+  workweek: WorkweekSettings = defaultWorkweek
+): ActionableSuggestion[] {
+  const actionableSuggestions: ActionableSuggestion[] = [];
+  
+  suggestions.forEach((suggestion, index) => {
+    const analysis = analyzeSuggestionIntent(suggestion);
+    
+    let suggestedTimeSlots: ActionableSuggestion['suggestedTimeSlots'] = [];
+    
+    if (analysis.actionable) {
+      switch (analysis.type) {
+        case 'focus_time':
+          suggestedTimeSlots = findFocusTimeSlots(events, suggestion, workweek);
+          break;
+        case 'break':
+          suggestedTimeSlots = findBreakTimeSlots(events, suggestion, workweek);
+          break;
+        case 'review_session':
+          suggestedTimeSlots = findReviewTimeSlots(events, suggestion, workweek);
+          break;
+        case 'planning_time':
+          suggestedTimeSlots = findPlanningTimeSlots(events, suggestion, workweek);
+          break;
+        case 'meeting_scheduling':
+          suggestedTimeSlots = findMeetingTimeSlots(events, suggestion, workweek);
+          break;
+      }
+    }
+
+    actionableSuggestions.push({
+      id: `suggestion-${index}`,
+      text: suggestion,
+      type: analysis.type,
+      actionable: analysis.actionable,
+      actionLabel: analysis.actionLabel,
+      actionDescription: analysis.actionDescription,
+      suggestedTimeSlots: analysis.actionable ? suggestedTimeSlots : undefined
+    });
+  });
+
+  return actionableSuggestions;
+}
+
+interface SuggestionAnalysis {
+  type: ActionableSuggestion['type'];
+  actionable: boolean;
+  actionLabel?: string;
+  actionDescription?: string;
+}
+
+function analyzeSuggestionIntent(suggestion: string): SuggestionAnalysis {
+  const suggestionLower = suggestion.toLowerCase();
+  
+  // Focus time suggestions
+  if (suggestionLower.includes('focus time') || 
+      suggestionLower.includes('deep work') || 
+      suggestionLower.includes('block') && (suggestionLower.includes('time') || suggestionLower.includes('hour'))) {
+    return {
+      type: 'focus_time',
+      actionable: true,
+      actionLabel: 'Schedule Focus Time',
+      actionDescription: 'Block uninterrupted time for deep work and strategic thinking'
+    };
+  }
+
+  // Break/lunch suggestions
+  if (suggestionLower.includes('break') || suggestionLower.includes('lunch')) {
+    return {
+      type: 'break',
+      actionable: true,
+      actionLabel: 'Schedule Break',
+      actionDescription: 'Add a break to your calendar to recharge and maintain productivity'
+    };
+  }
+
+  // Meeting consolidation/delegation suggestions (NOT actionable for direct scheduling)
+  if ((suggestionLower.includes('consolidate') || suggestionLower.includes('delegate')) && 
+      suggestionLower.includes('meeting')) {
+    return {
+      type: 'review_session',
+      actionable: true,
+      actionLabel: 'Schedule Review Session',
+      actionDescription: 'Block time to review and optimize your recurring meetings'
+    };
+  }
+
+  // 1:1 or specific meeting suggestions
+  if (suggestionLower.includes('1:1') || suggestionLower.includes('1-1') ||
+      (suggestionLower.includes('schedule') && suggestionLower.includes('meeting'))) {
+    return {
+      type: 'meeting_scheduling',
+      actionable: true,
+      actionLabel: 'Schedule Meeting',
+      actionDescription: 'Schedule the suggested meeting or check-in'
+    };
+  }
+
+  // Planning/strategy suggestions
+  if (suggestionLower.includes('plan') || suggestionLower.includes('strategy') || 
+      suggestionLower.includes('review') && !suggestionLower.includes('meeting')) {
+    return {
+      type: 'planning_time',
+      actionable: true,
+      actionLabel: 'Schedule Planning Time',
+      actionDescription: 'Block time for strategic planning and preparation'
+    };
+  }
+
+  // Work-life balance (advisory only)
+  if (suggestionLower.includes('work-life') || suggestionLower.includes('balance') || 
+      suggestionLower.includes('late') && suggestionLower.includes('meeting')) {
+    return {
+      type: 'work_life_balance',
+      actionable: false
+    };
+  }
+
+  // General suggestions that don't have clear calendar actions
+  return {
+    type: 'general',
+    actionable: false
+  };
+}
+
+function findFocusTimeSlots(events: CalendarEvent[], _suggestion: string, workweek: WorkweekSettings = defaultWorkweek): ActionableSuggestion['suggestedTimeSlots'] {
+  const timeSlots: NonNullable<ActionableSuggestion['suggestedTimeSlots']> = [];
+  const today = new Date();
+  
+  // Get next 7 workdays instead of calendar days
+  const workdays = getNextWorkdays(today, 7, workweek);
+
+  // Find free time slots for focus work (2-3 hour blocks)
+  for (const d of workdays) {
+    const dayStart = new Date(d);
+    dayStart.setHours(9, 0, 0, 0); // Start at 9 AM
+    const dayEnd = new Date(d);
+    dayEnd.setHours(17, 0, 0, 0); // End at 5 PM
+
+    const dayEvents = events.filter(event => {
+      const eventStart = new Date(event.start.dateTime || event.start.date || '');
+      return eventStart.toDateString() === d.toDateString();
+    }).sort((a, b) => {
+      const aStart = new Date(a.start.dateTime || a.start.date || '');
+      const bStart = new Date(b.start.dateTime || b.start.date || '');
+      return aStart.getTime() - bStart.getTime();
+    });
+
+    // Find gaps of 2+ hours
+    let currentTime = dayStart;
+    for (const event of dayEvents) {
+      const eventStart = new Date(event.start.dateTime || event.start.date || '');
+      const eventEnd = new Date(event.end.dateTime || event.end.date || '');
+      
+      if (eventStart.getTime() - currentTime.getTime() >= 2 * 60 * 60 * 1000) {
+        // Found a 2+ hour gap
+        const endTime = new Date(Math.min(eventStart.getTime(), currentTime.getTime() + 3 * 60 * 60 * 1000));
+        timeSlots.push({
+          startTime: currentTime.toTimeString().slice(0, 5),
+          endTime: endTime.toTimeString().slice(0, 5),
+          date: d.toISOString().split('T')[0],
+          reasoning: 'Uninterrupted time block perfect for deep work'
+        });
+      }
+      currentTime = eventEnd;
+    }
+
+    // Check for time after last meeting
+    if (dayEnd.getTime() - currentTime.getTime() >= 2 * 60 * 60 * 1000) {
+      const endTime = new Date(Math.min(dayEnd.getTime(), currentTime.getTime() + 3 * 60 * 60 * 1000));
+      timeSlots.push({
+        startTime: currentTime.toTimeString().slice(0, 5),
+        endTime: endTime.toTimeString().slice(0, 5),
+        date: d.toISOString().split('T')[0],
+        reasoning: 'End of day focus session'
+      });
+    }
+  }
+
+  return timeSlots.slice(0, 3); // Return top 3 options
+}
+
+function findBreakTimeSlots(_events: CalendarEvent[], suggestion: string, workweek: WorkweekSettings = defaultWorkweek): ActionableSuggestion['suggestedTimeSlots'] {
+  const timeSlots: NonNullable<ActionableSuggestion['suggestedTimeSlots']> = [];
+  
+  // Extract specific time if mentioned in suggestion (e.g., "1pm for lunch")
+  const timeMatch = suggestion.match(/(\d{1,2})(am|pm)/i);
+  if (timeMatch) {
+    const hour = parseInt(timeMatch[1]);
+    const isPM = timeMatch[2].toLowerCase() === 'pm';
+    const actualHour = isPM && hour !== 12 ? hour + 12 : (!isPM && hour === 12 ? 0 : hour);
+    
+    const today = new Date();
+    const workdays = getNextWorkdays(today, 5, workweek);
+    
+    for (const date of workdays) {
+      
+      timeSlots.push({
+        startTime: `${actualHour.toString().padStart(2, '0')}:00`,
+        endTime: `${(actualHour + 1).toString().padStart(2, '0')}:00`,
+        date: date.toISOString().split('T')[0],
+        reasoning: 'Suggested break time'
+      });
+    }
+  }
+
+  return timeSlots;
+}
+
+function findMeetingTimeSlots(events: CalendarEvent[], _suggestion: string, workweek: WorkweekSettings = defaultWorkweek): ActionableSuggestion['suggestedTimeSlots'] {
+  const timeSlots: NonNullable<ActionableSuggestion['suggestedTimeSlots']> = [];
+  const today = new Date();
+  
+  // Find common meeting times (10 AM, 2 PM, 3 PM slots)
+  const commonTimes = [
+    { hour: 10, label: 'Mid-morning slot' },
+    { hour: 14, label: 'Early afternoon slot' }, 
+    { hour: 15, label: 'Mid-afternoon slot' }
+  ];
+
+  const workdays = getNextWorkdays(today, 7, workweek);
+
+  for (const date of workdays) {
+    
+    commonTimes.forEach(time => {
+      const startTime = `${time.hour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(time.hour + 1).toString().padStart(2, '0')}:00`;
+      
+      // Check if slot is free
+      const conflictingEvents = events.filter(event => {
+        const eventStart = new Date(event.start.dateTime || event.start.date || '');
+        const eventDate = eventStart.toISOString().split('T')[0];
+        const eventHour = eventStart.getHours();
+        
+        return eventDate === date.toISOString().split('T')[0] && 
+               eventHour >= time.hour && eventHour < (time.hour + 1);
+      });
+      
+      if (conflictingEvents.length === 0) {
+        timeSlots.push({
+          startTime,
+          endTime,
+          date: date.toISOString().split('T')[0],
+          reasoning: time.label
+        });
+      }
+    });
+  }
+
+  return timeSlots.slice(0, 4); // Return top 4 options
+}
+
+function findReviewTimeSlots(events: CalendarEvent[], _suggestion: string, workweek: WorkweekSettings = defaultWorkweek): ActionableSuggestion['suggestedTimeSlots'] {
+  const timeSlots: NonNullable<ActionableSuggestion['suggestedTimeSlots']> = [];
+  const today = new Date();
+  
+  // Find 1-2 hour slots for reviewing meetings/processes
+  const reviewTimes = [
+    { hour: 9, duration: 1, label: 'Morning review session' },
+    { hour: 16, duration: 1, label: 'End-of-day review' },
+    { hour: 13, duration: 1, label: 'Midday process review' }
+  ];
+
+  const workdays = getNextWorkdays(today, 5, workweek);
+
+  for (const date of workdays) {
+    
+    reviewTimes.forEach(time => {
+      const startTime = `${time.hour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(time.hour + time.duration).toString().padStart(2, '0')}:00`;
+      
+      // Check if slot is free
+      const conflictingEvents = events.filter(event => {
+        const eventStart = new Date(event.start.dateTime || event.start.date || '');
+        const eventDate = eventStart.toISOString().split('T')[0];
+        const eventHour = eventStart.getHours();
+        
+        return eventDate === date.toISOString().split('T')[0] && 
+               eventHour >= time.hour && eventHour < (time.hour + time.duration);
+      });
+      
+      if (conflictingEvents.length === 0) {
+        timeSlots.push({
+          startTime,
+          endTime,
+          date: date.toISOString().split('T')[0],
+          reasoning: time.label
+        });
+      }
+    });
+  }
+
+  return timeSlots.slice(0, 3); // Return top 3 options
+}
+
+function findPlanningTimeSlots(events: CalendarEvent[], _suggestion: string, workweek: WorkweekSettings = defaultWorkweek): ActionableSuggestion['suggestedTimeSlots'] {
+  const timeSlots: NonNullable<ActionableSuggestion['suggestedTimeSlots']> = [];
+  const today = new Date();
+  
+  // Find 1-2 hour slots for planning, preferably in morning or end of day
+  const planningTimes = [
+    { hour: 8, duration: 2, label: 'Early morning planning session' },
+    { hour: 17, duration: 1, label: 'End-of-day planning' },
+    { hour: 10, duration: 1, label: 'Mid-morning strategy time' }
+  ];
+
+  const workdays = getNextWorkdays(today, 7, workweek);
+
+  for (const date of workdays) {
+    
+    planningTimes.forEach(time => {
+      const startTime = `${time.hour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(time.hour + time.duration).toString().padStart(2, '0')}:00`;
+      
+      // Check if slot is free
+      const conflictingEvents = events.filter(event => {
+        const eventStart = new Date(event.start.dateTime || event.start.date || '');
+        const eventDate = eventStart.toISOString().split('T')[0];
+        const eventHour = eventStart.getHours();
+        
+        return eventDate === date.toISOString().split('T')[0] && 
+               eventHour >= time.hour && eventHour < (time.hour + time.duration);
+      });
+      
+      if (conflictingEvents.length === 0) {
+        timeSlots.push({
+          startTime,
+          endTime,
+          date: date.toISOString().split('T')[0],
+          reasoning: time.label
+        });
+      }
+    });
+  }
+
+  return timeSlots.slice(0, 3); // Return top 3 options
+}
 
 export interface ScheduleSuggestions {
   suggestions: string[];
@@ -12,7 +353,8 @@ export interface ScheduleSuggestions {
 
 export async function analyzeCalendarData(
   events: CalendarEvent[],
-  isUpcomingAnalysis = false
+  isUpcomingAnalysis = false,
+  workweek: WorkweekSettings = defaultWorkweek
 ): Promise<CalendarAnalysis | ScheduleSuggestions> {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -59,7 +401,7 @@ export async function analyzeCalendarData(
     if (isUpcomingAnalysis) {
       return parseUpcomingAnalysis(analysisText);
     } else {
-      return parseHistoricalAnalysis(analysisText, events);
+      return parseHistoricalAnalysis(analysisText, events, workweek);
     }
   } catch (error) {
     console.error('Error analyzing calendar data with Gemini:', error);
@@ -188,7 +530,7 @@ Return ONLY valid JSON in this exact structure:
 `;
 }
 
-function parseHistoricalAnalysis(analysisText: string, events: CalendarEvent[]): CalendarAnalysis {
+function parseHistoricalAnalysis(analysisText: string, events: CalendarEvent[], workweek: WorkweekSettings = defaultWorkweek): CalendarAnalysis {
   try {
     // Try to extract JSON from the response
     const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
@@ -198,13 +540,17 @@ function parseHistoricalAnalysis(analysisText: string, events: CalendarEvent[]):
       // If AI analysis doesn't include meeting details, we'll use fallback
       // which includes the meeting details. For now, we'll always use fallback
       // to ensure we have meeting details for the expandable categories
-      const fallbackAnalysis = generateFallbackAnalysis(events);
+      const fallbackAnalysis = generateFallbackAnalysis(events, workweek);
       
       // Enhance the fallback with AI insights if available
+      const suggestions = parsed.suggestions || parsed.keyInsights || fallbackAnalysis.suggestions;
+      const actionableSuggestions = generateActionableSuggestions(suggestions, events, workweek);
+      
       return {
         ...fallbackAnalysis,
         keyInsights: parsed.keyInsights || fallbackAnalysis.keyInsights,
-        suggestions: parsed.suggestions || parsed.keyInsights || fallbackAnalysis.suggestions,
+        suggestions,
+        actionableSuggestions,
         topCollaborators: (parsed.topCollaborators || fallbackAnalysis.topCollaborators).map((collab: any) => ({
           name: collab.name,
           totalHours: collab.totalHours || collab.hours || 0,
@@ -218,7 +564,7 @@ function parseHistoricalAnalysis(analysisText: string, events: CalendarEvent[]):
   }
   
   // Fallback to simple analysis if parsing fails
-  return generateFallbackAnalysis(events);
+  return generateFallbackAnalysis(events, workweek);
 }
 
 function parseUpcomingAnalysis(analysisText: string): ScheduleSuggestions {
@@ -238,7 +584,7 @@ function parseUpcomingAnalysis(analysisText: string): ScheduleSuggestions {
   };
 }
 
-function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
+function generateFallbackAnalysis(events: CalendarEvent[], workweek: WorkweekSettings = defaultWorkweek): CalendarAnalysis {
   // Basic categorization based on simple rules
   const categories = new Map<string, { hours: number; count: number; meetings: MeetingDetail[] }>();
   const collaborators = new Map<string, { hours: number; meetingCount: number }>();
@@ -330,12 +676,27 @@ function generateFallbackAnalysis(events: CalendarEvent[]): CalendarAnalysis {
     keyInsights.push(`You spend the most time with ${topCollaborators[0].name} (${topCollaborators[0].totalHours} hours)`);
   }
   
+  // Generate basic suggestions
+  const suggestions = [];
+  if (focusHours < totalHours * 0.2) {
+    suggestions.push('Consider blocking 2-3 hours of focus time daily to enhance deep work productivity.');
+  }
+  if (meetingPercentage > 70) {
+    suggestions.push('Your meeting load is high. Consider delegating or declining some recurring meetings.');
+  }
+  if (events.some(e => e.attendees && e.attendees.length > 8)) {
+    suggestions.push('Some large meetings could be more efficient as smaller focused sessions.');
+  }
+
+  const actionableSuggestions = generateActionableSuggestions(suggestions, events, workweek);
+
   return {
     categories: categoryArray,
     totalMeetingHours: Math.round(meetingHours * 10) / 10,
     focusHours: Math.round(focusHours * 10) / 10,
     keyInsights,
-    suggestions: [],
+    suggestions,
+    actionableSuggestions,
     topCollaborators,
     lastUpdated: new Date().toISOString()
   };

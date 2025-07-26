@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { ensureAuthenticated } from '../services/auth';
 import { getCalendarEvents } from '../services/calendar';
 import { analyzeCalendarData } from '../services/gemini';
+import { scheduleCalendarEvent, ScheduleEventRequest } from '../services/calendarScheduling';
+import { getUserWorkweek } from '../utils/userHelpers';
 
 const router = Router();
 
@@ -13,8 +15,11 @@ router.get('/analysis', ensureAuthenticated, async (req: any, res: any) => {
     // Get calendar events from the past month
     const events = await getCalendarEvents(user.accessToken);
     
+    // Get user's workweek settings
+    const workweek = await getUserWorkweek(user.id);
+    
     // Analyze with Gemini AI
-    const analysis = await analyzeCalendarData(events);
+    const analysis = await analyzeCalendarData(events, false, workweek);
     
     // Return the analysis directly as the client expects
     res.json(analysis);
@@ -95,8 +100,11 @@ router.get('/upcoming', ensureAuthenticated, async (req: any, res: any) => {
     
     const events = await getCalendarEvents(user.accessToken, startTime, endTime);
     
+    // Get user's workweek settings
+    const workweek = await getUserWorkweek(user.id);
+    
     // Analyze upcoming schedule
-    const suggestions = await analyzeCalendarData(events, true);
+    const suggestions = await analyzeCalendarData(events, true, workweek);
     
     res.json({
       suggestions,
@@ -213,5 +221,47 @@ function calculateWeekOverWeekTrends(weeks: any[]) {
     eventCount: calculateTrend(currentWeek.eventCount, previousWeek.eventCount)
   };
 }
+
+// Schedule a calendar event based on actionable suggestion
+router.post('/schedule-suggestion', ensureAuthenticated, async (req: any, res: any) => {
+  try {
+    const user = req.user;
+    const { suggestion, timeSlot } = req.body;
+
+    if (!suggestion || !timeSlot) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: suggestion and timeSlot' 
+      });
+    }
+
+    const scheduleRequest: ScheduleEventRequest = {
+      suggestion,
+      timeSlot,
+      accessToken: user.accessToken,
+    };
+
+    const result = await scheduleCalendarEvent(scheduleRequest);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        eventId: result.eventId,
+        eventLink: result.eventLink,
+        message: 'Event scheduled successfully!'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to schedule event'
+      });
+    }
+  } catch (error) {
+    console.error('Error scheduling suggestion:', error);
+    res.status(500).json({ 
+      error: 'Failed to schedule calendar event',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 export { router as calendarRoutes }; 

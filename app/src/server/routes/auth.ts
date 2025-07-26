@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import passport from 'passport';
 import { IUserRepository } from '../interfaces/IUserRepository';
+import { WorkweekSettings } from '../../shared/types';
 
 export function createAuthRouter(userRepository: IUserRepository): Router {
   const router = Router();
@@ -104,19 +105,101 @@ export function createAuthRouter(userRepository: IUserRepository): Router {
         console.error('Logout error:', err);
         return res.status(500).json({ error: 'Logout failed' });
       }
-      res.json({ message: 'Logged out successfully' });
+      
+      // Destroy session to ensure complete logout
+      req.session.destroy((sessionErr: any) => {
+        if (sessionErr) {
+          console.error('Session destruction error:', sessionErr);
+        }
+        res.clearCookie('timesherpa.sid'); // Clear session cookie
+        res.json({ message: 'Logged out successfully' });
+      });
     });
   });
 
   // Debug endpoint to check session
   router.get('/session-debug', (req: any, res: any) => {
-    res.json({
-      sessionID: req.sessionID,
-      session: req.session,
-      isAuthenticated: req.isAuthenticated(),
-      user: req.user,
-      cookies: req.headers.cookie,
+    // Modify session to force persistence
+    req.session.lastAccess = new Date().toISOString();
+    
+    req.session.save((err: any) => {
+      if (err) {
+        console.error('Session save error:', err);
+      }
+      
+      res.json({
+        sessionID: req.sessionID,
+        session: req.session,
+        isAuthenticated: req.isAuthenticated(),
+        user: req.user,
+        cookies: req.headers.cookie,
+      });
     });
+  });
+
+  // Get user preferences including workweek settings
+  router.get('/preferences', async (req: any, res: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    try {
+      const user = await userRepository.findByGoogleId(req.user.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      res.json({
+        preferences: user.preferences
+      });
+    } catch (error) {
+      console.error('Error fetching user preferences:', error);
+      res.status(500).json({ error: 'Failed to fetch preferences' });
+    }
+  });
+
+  // Update workweek settings
+  router.put('/workweek', async (req: any, res: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    try {
+      const { workweek }: { workweek: WorkweekSettings } = req.body;
+      
+      if (!workweek) {
+        return res.status(400).json({ error: 'Workweek settings are required' });
+      }
+
+      // Validate workweek settings
+      const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      for (const day of requiredDays) {
+        if (typeof workweek[day as keyof WorkweekSettings] !== 'boolean') {
+          return res.status(400).json({ error: `Invalid value for ${day}` });
+        }
+      }
+
+      const user = await userRepository.findByGoogleId(req.user.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Update user preferences
+      user.preferences = {
+        ...user.preferences,
+        workweek
+      };
+
+      await userRepository.save(user);
+
+      res.json({
+        message: 'Workweek settings updated successfully',
+        workweek
+      });
+    } catch (error) {
+      console.error('Error updating workweek settings:', error);
+      res.status(500).json({ error: 'Failed to update workweek settings' });
+    }
   });
 
   return router;
