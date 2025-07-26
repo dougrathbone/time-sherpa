@@ -16,7 +16,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .ts,.tsx --fix",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "azure:build": "npm ci && npm run build",
+    "azure:start": "npm start"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
