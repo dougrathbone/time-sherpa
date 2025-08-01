@@ -423,9 +423,9 @@ function calculateEventDuration(event: CalendarEvent): number {
   try {
     const startTime = new Date(event.start.dateTime || event.start.date || '');
     const endTime = new Date(event.end.dateTime || event.end.date || '');
-    return (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60); // Hours
+    return Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60)); // Minutes
   } catch {
-    return 1; // Default to 1 hour if can't calculate
+    return 60; // Default to 60 minutes if can't calculate
   }
 }
 
@@ -623,7 +623,7 @@ function generateFallbackAnalysis(events: CalendarEvent[], workweek: WorkweekSet
     
     const current = categories.get(category) || { hours: 0, count: 0, meetings: [] };
     categories.set(category, {
-      hours: current.hours + duration,
+      hours: current.hours + (duration / 60), // Convert minutes to hours
       count: current.count + 1,
       meetings: [...current.meetings, meetingDetail]
     });
@@ -633,13 +633,13 @@ function generateFallbackAnalysis(events: CalendarEvent[], workweek: WorkweekSet
       const name = attendee.displayName || attendee.email || 'Unknown';
       const current = collaborators.get(name) || { hours: 0, meetingCount: 0 };
       collaborators.set(name, {
-        hours: current.hours + duration,
+        hours: current.hours + (duration / 60), // Convert minutes to hours
         meetingCount: current.meetingCount + 1
       });
     });
   });
   
-  const totalHours = events.reduce((sum, event) => sum + calculateEventDuration(event), 0);
+  const totalHours = events.reduce((sum, event) => sum + (calculateEventDuration(event) / 60), 0); // Convert minutes to hours
   const focusHours = categories.get('Focus Time')?.hours || 0;
   const meetingHours = totalHours - focusHours - (categories.get('Personal Time')?.hours || 0);
   

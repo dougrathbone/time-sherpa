@@ -1,32 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { withRetry, getErrorMessage, ERROR_MESSAGES } from '../utils/errorHandling';
-
-interface TimeCategory {
-  name: string;
-  totalHours: number;
-  percentage: number;
-  eventCount: number;
-  events?: Array<{
-    summary: string;
-    start: string;
-    end: string;
-    duration: number;
-  }>;
-}
-
-interface CalendarAnalysis {
-  categories: TimeCategory[];
-  totalMeetingHours: number;
-  focusHours: number;
-  suggestions: string[];
-  topCollaborators: Array<{
-    name: string;
-    meetingCount: number;
-    totalHours: number;
-  }>;
-  lastUpdated: string;
-}
+import { CalendarAnalysis } from '../../shared/types';
 
 interface CalendarAnalysisState {
   analysis: CalendarAnalysis | null;

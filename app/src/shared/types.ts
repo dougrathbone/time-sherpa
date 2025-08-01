@@ -15,7 +15,7 @@ export interface MeetingDetail {
   title: string;
   startTime: string;
   endTime: string;
-  duration: number;
+  duration: number; // Duration in minutes
   attendeeCount: number;
   attendees: Array<{
     email: string;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import AttendeeAvatar from './AttendeeAvatar';
-import { TimeCategory } from '../shared/types';
+import { TimeCategory, MeetingDetail } from '../../shared/types';
 
 interface ExpandableCategoryProps {
   category: TimeCategory;
@@ -26,11 +26,13 @@ function ExpandableCategory({ category, color, index }: ExpandableCategoryProps)
     }
   };
 
-  const formatDuration = (hours: number) => {
-    if (hours < 1) {
-      return `${Math.round(hours * 60)}m`;
-    }
-    return `${hours.toFixed(1)}h`;
+  const formatDuration = (minutes: number) => {
+    const wholeHours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    
+    if (wholeHours === 0) return `${remainingMinutes}m`;
+    if (remainingMinutes === 0) return `${wholeHours}h`;
+    return `${wholeHours}h ${remainingMinutes}m`;
   };
 
 
@@ -79,7 +81,7 @@ function ExpandableCategory({ category, color, index }: ExpandableCategoryProps)
                 No meetings in this category
               </div>
             ) : (
-              category.meetings.map((meeting) => (
+              category.meetings.map((meeting: MeetingDetail) => (
                 <div 
                   key={meeting.id}
                   className="bg-white rounded-lg p-4 border border-primary-gray/10 hover:shadow-sm transition-shadow"
@@ -117,7 +119,7 @@ function ExpandableCategory({ category, color, index }: ExpandableCategoryProps)
                         {meeting.attendees.length} attendee{meeting.attendees.length !== 1 ? 's' : ''}:
                       </span>
                       <div className="flex items-center">
-                        {meeting.attendees.slice(0, 5).map(attendee => (
+                        {meeting.attendees.slice(0, 5).map((attendee: { email: string; displayName?: string }) => (
                           <AttendeeAvatar
                             key={attendee.email}
                             email={attendee.email}

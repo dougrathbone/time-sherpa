@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import ExpandableCategory from './ExpandableCategory';
-import { CalendarAnalysis } from '../shared/types';
+import MeetingDetailsModal from './MeetingDetailsModal';
+import { CalendarAnalysis, TimeCategory } from '../../shared/types';
 
 interface TimeAnalysisChartProps {
   analysis: CalendarAnalysis;
@@ -20,11 +21,28 @@ const COLORS = [
 ];
 
 function TimeAnalysisChart({ analysis }: TimeAnalysisChartProps) {
+  const [selectedCategory, setSelectedCategory] = useState<TimeCategory | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleCategoryClick = (categoryName: string) => {
+    const category = analysis.categories.find(cat => cat.name === categoryName);
+    if (category) {
+      setSelectedCategory(category);
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCategory(null);
+  };
+
   const pieData = analysis.categories.map((category, index) => ({
     name: category.name,
     value: category.totalHours,
     percentage: category.percentage,
     color: COLORS[index % COLORS.length],
+    category: category, // Store reference to full category data
   }));
 
   // Sort categories by hours for better visualization
@@ -36,6 +54,7 @@ function TimeAnalysisChart({ analysis }: TimeAnalysisChartProps) {
     hours: category.totalHours,
     events: category.eventCount,
     fill: COLORS[index % COLORS.length],
+    category: category, // Store reference to full category data
   }));
 
   return (
@@ -87,9 +106,15 @@ function TimeAnalysisChart({ analysis }: TimeAnalysisChartProps) {
                   fill="#8884d8"
                   dataKey="value"
                   label={false}
+                  onClick={(data) => handleCategoryClick(data.name)}
+                  style={{ cursor: 'pointer' }}
                 >
                   {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.color}
+                      className="hover:opacity-80 transition-opacity"
+                    />
                   ))}
                 </Pie>
                 <Tooltip 
@@ -116,12 +141,17 @@ function TimeAnalysisChart({ analysis }: TimeAnalysisChartProps) {
           {/* Legend */}
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
             {pieData.map((entry, index) => (
-              <div key={entry.name} className="flex items-center gap-2 text-sm p-1 hover:bg-gray-50 rounded transition-colors">
+              <div 
+                key={entry.name} 
+                className="flex items-center gap-2 text-sm p-2 hover:bg-gray-50 rounded transition-colors cursor-pointer"
+                onClick={() => handleCategoryClick(entry.name)}
+                title={`Click to view ${entry.name} meetings`}
+              >
                 <div 
                   className="w-3 h-3 rounded-full flex-shrink-0"
                   style={{ backgroundColor: entry.color }}
                 />
-                <span className="text-primary-dark/80 truncate" title={entry.name}>
+                <span className="text-primary-dark/80 truncate">
                   {entry.name} ({entry.percentage}%)
                 </span>
               </div>
@@ -169,6 +199,9 @@ function TimeAnalysisChart({ analysis }: TimeAnalysisChartProps) {
                 dataKey="hours" 
                 name="Hours"
                 radius={[8, 8, 0, 0]}
+                onClick={(data) => handleCategoryClick(data.fullName)}
+                style={{ cursor: 'pointer' }}
+                className="hover:opacity-80 transition-opacity"
               />
             </BarChart>
           </ResponsiveContainer>
@@ -191,6 +224,13 @@ function TimeAnalysisChart({ analysis }: TimeAnalysisChartProps) {
           ))}
         </div>
       </div>
+
+      {/* Meeting Details Modal */}
+      <MeetingDetailsModal
+        category={selectedCategory}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }
