@@ -8,7 +8,7 @@ import FileStore from 'session-file-store';
 import passport from 'passport';
 
 import { createAuthRouter } from './server/routes/auth';
-import { calendarRoutes } from './server/routes/calendar';
+import { createCalendarRouter } from './server/routes/calendar';
 import { createSubscriptionRouter } from './server/routes/subscription';
 import { setupGoogleStrategy } from './server/services/auth';
 import { JsonUserRepository } from './server/repositories/JsonUserRepository';
@@ -133,7 +133,7 @@ emailScheduler.start();
 
 // API routes
 app.use('/api/auth', createAuthRouter(userRepository));
-app.use('/api/calendar', calendarRoutes);
+app.use('/api/calendar', createCalendarRouter(userRepository));
 app.use('/api/v1/subscription', createSubscriptionRouter(userRepository));
 
 // Health check endpoint
