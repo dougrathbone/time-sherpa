@@ -82,7 +82,7 @@ jobs:
         NODE_ENV: production
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: build-artifacts
         path: |
@@ -151,7 +151,7 @@ jobs:
 
     - name: Upload ESLint report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: eslint-report
         path: app/eslint-report.json
