@@ -63,6 +63,18 @@ function createOAuth2Client(accessToken: string) {
   return client;
 }
 
+/**
+ * Extract the HTTP status code from a GaxiosError or similar error.
+ * GaxiosError stores the HTTP status in `.status`, while `.code` may be
+ * a string like 'ECONNREFUSED'. For AIP-193 errors `.code` can also be
+ * numeric. We check both to be safe.
+ */
+function getHttpStatus(error: any): number | undefined {
+  if (typeof error?.status === 'number') return error.status;
+  if (typeof error?.code === 'number') return error.code;
+  return undefined;
+}
+
 export function generateGoogleCalendarLink(event: CalendarEvent): string {
   // If the event has an htmlLink from Google API, use it
   if (event.htmlLink) {
@@ -137,8 +149,10 @@ export async function getCalendarEventsWithRefresh(
       return mapGoogleEventsToCalendarEvents(events);
     } catch (tokenError: any) {
       // If access token fails (401 expired, or 403 insufficient scopes) and we have a refresh token, try refreshing
-      if ((tokenError.code === 401 || tokenError.code === 403) && user.refreshToken) {
-        console.log(`Access token error (${tokenError.code}), attempting refresh for user:`, user.id);
+      // GaxiosError stores HTTP status in `.status`; `.code` can be a string like 'ECONNREFUSED'
+      const httpStatus = getHttpStatus(tokenError);
+      if ((httpStatus === 401 || httpStatus === 403) && user.refreshToken) {
+        console.log(`Access token error (${httpStatus}), attempting refresh for user:`, user.id);
         const refreshedAuth = await getRefreshTokenAuth(user.refreshToken);
         const events = await fetchEvents(refreshedAuth);
         return mapGoogleEventsToCalendarEvents(events);
@@ -152,7 +166,7 @@ export async function getCalendarEventsWithRefresh(
     const calendarError: any = new Error(
       error?.cause?.message || error?.message || 'Failed to fetch calendar events'
     );
-    calendarError.code = error?.code || error?.status || 500;
+    calendarError.code = getHttpStatus(error) || 500;
     calendarError.googleError = error?.cause || null;
     throw calendarError;
   }

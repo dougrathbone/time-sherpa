@@ -6,6 +6,17 @@ import { scheduleCalendarEvent, ScheduleEventRequest } from '../services/calenda
 import { getUserWorkweek } from '../utils/userHelpers';
 import { IUserRepository } from '../interfaces/IUserRepository';
 
+/**
+ * Extract the HTTP status code from an error.
+ * GaxiosError uses `.status` for the HTTP code while `.code` may be a string.
+ * Our own calendarError uses `.code` as a number. Check both for robustness.
+ */
+function getErrorHttpStatus(error: any): number | undefined {
+  if (typeof error?.status === 'number') return error.status;
+  if (typeof error?.code === 'number') return error.code;
+  return undefined;
+}
+
 export function createCalendarRouter(userRepository: IUserRepository): Router {
   const router = Router();
 
@@ -38,10 +49,11 @@ export function createCalendarRouter(userRepository: IUserRepository): Router {
     } catch (error: any) {
       console.error('Calendar analysis error:', error);
       
-      const statusCode = error.code === 403 ? 403 : error.code === 401 ? 401 : 500;
-      const message = error.code === 403
+      const httpStatus = getErrorHttpStatus(error);
+      const statusCode = httpStatus === 403 ? 403 : httpStatus === 401 ? 401 : 500;
+      const message = httpStatus === 403
         ? 'Calendar access denied. Please sign out and sign in again to grant calendar permissions. Also ensure the Google Calendar API is enabled in your Google Cloud Console.'
-        : error.code === 401
+        : httpStatus === 401
         ? 'Your session has expired. Please sign in again.'
         : 'Failed to analyze calendar data';
       
@@ -113,10 +125,11 @@ export function createCalendarRouter(userRepository: IUserRepository): Router {
     } catch (error: any) {
       console.error('Week-over-week analysis error:', error);
       
-      const statusCode = error.code === 403 ? 403 : error.code === 401 ? 401 : 500;
-      const message = error.code === 403
+      const httpStatus = getErrorHttpStatus(error);
+      const statusCode = httpStatus === 403 ? 403 : httpStatus === 401 ? 401 : 500;
+      const message = httpStatus === 403
         ? 'Calendar access denied. Please sign out and sign in again to grant calendar permissions.'
-        : error.code === 401
+        : httpStatus === 401
         ? 'Your session has expired. Please sign in again.'
         : 'Failed to analyze week-over-week data';
       
@@ -165,10 +178,11 @@ export function createCalendarRouter(userRepository: IUserRepository): Router {
     } catch (error: any) {
       console.error('Upcoming events analysis error:', error);
       
-      const statusCode = error.code === 403 ? 403 : error.code === 401 ? 401 : 500;
-      const message = error.code === 403
+      const httpStatus = getErrorHttpStatus(error);
+      const statusCode = httpStatus === 403 ? 403 : httpStatus === 401 ? 401 : 500;
+      const message = httpStatus === 403
         ? 'Calendar access denied. Please sign out and sign in again to grant calendar permissions.'
-        : error.code === 401
+        : httpStatus === 401
         ? 'Your session has expired. Please sign in again.'
         : 'Failed to analyze upcoming events';
       
