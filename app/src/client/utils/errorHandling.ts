@@ -78,6 +78,8 @@ export function getErrorMessage(error: unknown): string {
       case 401:
         return 'Your session has expired. Please sign in again.';
       case 403:
+        // Use server-provided error message if available (e.g. calendar permission issues)
+        if (data?.error) return data.error;
         return 'You don\'t have permission to perform this action.';
       case 404:
         return 'The requested resource was not found.';
@@ -87,6 +89,8 @@ export function getErrorMessage(error: unknown): string {
       case 502:
       case 503:
       case 504:
+        // Use server-provided error message if available
+        if (data?.error) return data.error;
         return 'The server is experiencing issues. Please try again later.';
       default:
         // Try to get message from response data

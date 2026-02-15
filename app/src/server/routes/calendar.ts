@@ -35,10 +35,18 @@ export function createCalendarRouter(userRepository: IUserRepository): Router {
       
       // Return the analysis directly as the client expects
       res.json(analysis);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Calendar analysis error:', error);
-      res.status(500).json({ 
-        error: 'Failed to analyze calendar data',
+      
+      const statusCode = error.code === 403 ? 403 : error.code === 401 ? 401 : 500;
+      const message = error.code === 403
+        ? 'Calendar access denied. Please sign out and sign in again to grant calendar permissions. Also ensure the Google Calendar API is enabled in your Google Cloud Console.'
+        : error.code === 401
+        ? 'Your session has expired. Please sign in again.'
+        : 'Failed to analyze calendar data';
+      
+      res.status(statusCode).json({ 
+        error: message,
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -102,10 +110,18 @@ export function createCalendarRouter(userRepository: IUserRepository): Router {
         trends,
         generatedAt: new Date().toISOString()
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Week-over-week analysis error:', error);
-      res.status(500).json({ 
-        error: 'Failed to analyze week-over-week data',
+      
+      const statusCode = error.code === 403 ? 403 : error.code === 401 ? 401 : 500;
+      const message = error.code === 403
+        ? 'Calendar access denied. Please sign out and sign in again to grant calendar permissions.'
+        : error.code === 401
+        ? 'Your session has expired. Please sign in again.'
+        : 'Failed to analyze week-over-week data';
+      
+      res.status(statusCode).json({ 
+        error: message,
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -146,10 +162,18 @@ export function createCalendarRouter(userRepository: IUserRepository): Router {
           end: endTime.toISOString()
         }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upcoming events analysis error:', error);
-      res.status(500).json({ 
-        error: 'Failed to analyze upcoming events',
+      
+      const statusCode = error.code === 403 ? 403 : error.code === 401 ? 401 : 500;
+      const message = error.code === 403
+        ? 'Calendar access denied. Please sign out and sign in again to grant calendar permissions.'
+        : error.code === 401
+        ? 'Your session has expired. Please sign in again.'
+        : 'Failed to analyze upcoming events';
+      
+      res.status(statusCode).json({ 
+        error: message,
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

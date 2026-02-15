@@ -1,5 +1,7 @@
 import { google } from 'googleapis';
 import { getRefreshTokenAuth } from './auth';
+import fs from 'fs';
+import path from 'path';
 
 export interface CalendarEvent {
   id: string;
@@ -26,6 +28,39 @@ export interface CalendarEvent {
     displayName?: string;
   };
   htmlLink?: string;
+}
+
+// Cache Google OAuth credentials so we don't read the file on every request
+let cachedCredentials: { client_id: string; client_secret: string; redirect_uris: string[] } | null = null;
+
+function getGoogleCredentials() {
+  if (!cachedCredentials) {
+    try {
+      const credentialsPath = path.join(process.cwd(), 'client_secret.json');
+      const raw = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+      cachedCredentials = raw.web;
+    } catch {
+      return null;
+    }
+  }
+  return cachedCredentials;
+}
+
+function createOAuth2Client(accessToken: string) {
+  const creds = getGoogleCredentials();
+  if (creds) {
+    const client = new google.auth.OAuth2(
+      creds.client_id,
+      creds.client_secret,
+      creds.redirect_uris[0]
+    );
+    client.setCredentials({ access_token: accessToken });
+    return client;
+  }
+  // Fallback: bare client (less reliable)
+  const client = new google.auth.OAuth2();
+  client.setCredentials({ access_token: accessToken });
+  return client;
 }
 
 export function generateGoogleCalendarLink(event: CalendarEvent): string {
@@ -78,46 +113,11 @@ export async function getCalendarEventsWithRefresh(
   timeMin?: Date,
   timeMax?: Date
 ): Promise<CalendarEvent[]> {
-  try {
-    let auth;
-    
-    // First try with the access token
-    try {
-      auth = new google.auth.OAuth2();
-      auth.setCredentials({ access_token: user.accessToken });
-      
-      const calendar = google.calendar({ version: 'v3', auth });
-      
-      const defaultTimeMin = timeMin || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const defaultTimeMax = timeMax || new Date();
-      
-      const response = await calendar.events.list({
-        calendarId: 'primary',
-        timeMin: defaultTimeMin.toISOString(),
-        timeMax: defaultTimeMax.toISOString(),
-        maxResults: 2500,
-        singleEvents: true,
-        orderBy: 'startTime',
-      });
-      
-      const events = response.data.items || [];
-      return mapGoogleEventsToCalendarEvents(events);
-    } catch (tokenError: any) {
-      // If access token fails and we have a refresh token, try refreshing
-      if (tokenError.code === 401 && user.refreshToken) {
-        console.log('Access token expired, attempting refresh for user:', user.id);
-        auth = await getRefreshTokenAuth(user.refreshToken);
-      } else {
-        throw tokenError;
-      }
-    }
-    
-    // Retry with refreshed token
+  const defaultTimeMin = timeMin || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const defaultTimeMax = timeMax || new Date();
+  
+  const fetchEvents = async (auth: any) => {
     const calendar = google.calendar({ version: 'v3', auth });
-    
-    const defaultTimeMin = timeMin || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const defaultTimeMax = timeMax || new Date();
-
     const response = await calendar.events.list({
       calendarId: 'primary',
       timeMin: defaultTimeMin.toISOString(),
@@ -126,12 +126,35 @@ export async function getCalendarEventsWithRefresh(
       singleEvents: true,
       orderBy: 'startTime',
     });
+    return response.data.items || [];
+  };
 
-    const events = response.data.items || [];
-    return mapGoogleEventsToCalendarEvents(events);
-  } catch (error) {
+  try {
+    // First try with the access token using a properly configured OAuth2 client
+    try {
+      const auth = createOAuth2Client(user.accessToken);
+      const events = await fetchEvents(auth);
+      return mapGoogleEventsToCalendarEvents(events);
+    } catch (tokenError: any) {
+      // If access token fails (401 expired, or 403 insufficient scopes) and we have a refresh token, try refreshing
+      if ((tokenError.code === 401 || tokenError.code === 403) && user.refreshToken) {
+        console.log(`Access token error (${tokenError.code}), attempting refresh for user:`, user.id);
+        const refreshedAuth = await getRefreshTokenAuth(user.refreshToken);
+        const events = await fetchEvents(refreshedAuth);
+        return mapGoogleEventsToCalendarEvents(events);
+      }
+      throw tokenError;
+    }
+  } catch (error: any) {
     console.error('Error fetching calendar events:', error);
-    throw new Error('Failed to fetch calendar events');
+    
+    // Preserve the Google API error code and message for upstream handling
+    const calendarError: any = new Error(
+      error?.cause?.message || error?.message || 'Failed to fetch calendar events'
+    );
+    calendarError.code = error?.code || error?.status || 500;
+    calendarError.googleError = error?.cause || null;
+    throw calendarError;
   }
 }
 

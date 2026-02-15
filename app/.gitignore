@@ -8,6 +8,9 @@
 # sessions
 /sessions
 
+# Google OAuth credentials (sensitive)
+client_secret.json
+
 # user data (contains sensitive OAuth tokens)
 /data/users.json
 /data/users.json.backup

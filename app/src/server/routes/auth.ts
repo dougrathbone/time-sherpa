@@ -2,12 +2,20 @@ import { Router } from 'express';
 import passport from 'passport';
 import { IUserRepository } from '../interfaces/IUserRepository';
 import { WorkweekSettings } from '../../shared/types';
+import { isGoogleAuthConfigured } from '../services/auth';
 
 export function createAuthRouter(userRepository: IUserRepository): Router {
   const router = Router();
 
   // Start Google OAuth flow
-  router.get('/google', 
+  router.get('/google', (req: any, res: any, next: any) => {
+    if (!isGoogleAuthConfigured()) {
+      return res.status(503).json({
+        error: 'Google OAuth is not configured. Place client_secret.json in the app/ directory.'
+      });
+    }
+    next();
+  },
     passport.authenticate('google', {
       scope: [
         'profile',
@@ -20,7 +28,14 @@ export function createAuthRouter(userRepository: IUserRepository): Router {
   );
 
   // Google OAuth callback
-  router.get('/google/callback',
+  router.get('/google/callback', (req: any, res: any, next: any) => {
+    if (!isGoogleAuthConfigured()) {
+      return res.status(503).json({
+        error: 'Google OAuth is not configured. Place client_secret.json in the app/ directory.'
+      });
+    }
+    next();
+  },
     passport.authenticate('google', { 
       failureRedirect: process.env.NODE_ENV === 'development' 
         ? 'http://localhost:3000/?error=auth_failed' 

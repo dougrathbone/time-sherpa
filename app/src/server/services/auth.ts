@@ -20,6 +20,12 @@ export interface User {
   refreshToken?: string;
 }
 
+let googleStrategyConfigured = false;
+
+export function isGoogleAuthConfigured(): boolean {
+  return googleStrategyConfigured;
+}
+
 export function setupGoogleStrategy(): void {
   try {
     // Read Google OAuth credentials
@@ -70,9 +76,20 @@ export function setupGoogleStrategy(): void {
       done(null, user);
     });
 
+    googleStrategyConfigured = true;
+
   } catch (error) {
     console.error('Error setting up Google OAuth strategy:', error);
-    throw error;
+    console.warn('Google OAuth is not configured. Authentication will not work.');
+    console.warn('To enable authentication, place your client_secret.json in the app/ directory.');
+    
+    // Still set up serialization so the server can start
+    passport.serializeUser((user: any, done) => {
+      done(null, user);
+    });
+    passport.deserializeUser((user: any, done) => {
+      done(null, user);
+    });
   }
 }
 

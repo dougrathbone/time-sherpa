@@ -25,6 +25,9 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 
+# Google OAuth credentials (sensitive)
+client_secret.json
+
 # IDEs and editors
 .idea
 .vscode
