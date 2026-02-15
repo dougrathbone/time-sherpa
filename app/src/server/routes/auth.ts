@@ -8,7 +8,7 @@ export function createAuthRouter(userRepository: IUserRepository): Router {
   const router = Router();
 
   // Start Google OAuth flow
-  router.get('/google', (req: any, res: any, next: any) => {
+  router.get('/google', (_req: any, res: any, next: any) => {
     if (!isGoogleAuthConfigured()) {
       return res.status(503).json({
         error: 'Google OAuth is not configured. Place client_secret.json in the app/ directory.'
@@ -28,7 +28,7 @@ export function createAuthRouter(userRepository: IUserRepository): Router {
   );
 
   // Google OAuth callback
-  router.get('/google/callback', (req: any, res: any, next: any) => {
+  router.get('/google/callback', (_req: any, res: any, next: any) => {
     if (!isGoogleAuthConfigured()) {
       return res.status(503).json({
         error: 'Google OAuth is not configured. Place client_secret.json in the app/ directory.'

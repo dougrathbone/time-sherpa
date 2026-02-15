@@ -1,20 +1,19 @@
 {
+  "buildCommand": "npm run client:build",
+  "outputDirectory": "dist/client",
   "functions": {
-    "dist/server.js": {
+    "api/index.ts": {
       "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/dist/server.js"
+      "destination": "/api"
     },
     {
       "source": "/(.*)",
-      "destination": "/dist/client/$1"
+      "destination": "/index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
-} 
+  ]
+}
